@@ -5,11 +5,21 @@
 #include "../include/fonda_scheduler/common.hpp"
 #include "cluster.hpp"
 #include "graph.hpp"
+#include "fonda_scheduler/dynSched.hpp"
 
 bool Debug;
 
-string answerWithJson(Cluster * cluster){
+string answerWithJson(vector<Assignment *> assignments){
 
+    nlohmann::json jsonObject;
+
+    for (const auto& assignment : assignments) {
+        jsonObject[assignment->task->name] = assignment->toJson();
+    }
+
+    // Print the JSON object
+    std::cout << jsonObject.dump(4) << std::endl;
+    return to_string(jsonObject);
 }
 
 void Cluster::printAssignment(){

@@ -28,7 +28,7 @@ using namespace Pistache;
 using json = nlohmann::json;
 
 
-void runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName){
+vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName){
     try {
         std::map<int, std::vector<std::string>> partitionMap;
         auto start = std::chrono::system_clock::now();
@@ -42,12 +42,13 @@ void runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *clus
                         0;
                 bool wasCorrect = heft(graphMemTopology, cluster, ms, assignments, avgPeakMem);
                 cout << workflowName << " " << ms << (wasCorrect ? " yes" : " no") << " " << avgPeakMem;
+                return assignments;
             }
                 break;
             case 3: {
                 double d = heuristic(graphMemTopology, cluster,1 , 1, assignments, avgPeakMem);
                 cout << workflowName << " " << d << " yes " << avgPeakMem;
-                break;
+                return assignments;
             }
             case 4: {
                 double d = heuristic(graphMemTopology, cluster,2 , 1, assignments, avgPeakMem);
@@ -59,8 +60,7 @@ void runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *clus
                 double avgPeakMem=0;
                 double d = heuristic(graphMemTopology, cluster,3 , 1, assignments, avgPeakMem);
                 cout << workflowName << " " << d << ((d==-1)? "no":" yes " )<< avgPeakMem;
-
-                break;
+                return assignments;
             }
             case 6: {
                 Cluster *cluster2 = new Cluster(cluster);
@@ -71,7 +71,7 @@ void runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *clus
                 applyExponentialTransformationWithFactor(0.15, graphMemTopology);
                 double d2 = retrace(graphMemTopology, cluster2);
                 double d3 = heuristic(graphMemTopology, cluster3, 3,1,assignments, avgPeakMem);
-                break;
+                return assignments;
             }
             default:
                 cout << "UNKNOWN ALGORITHM" << endl;
@@ -129,7 +129,9 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
   //  }
 
 
-    runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
+    const vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
+    const string  answerJson =
+            answerWithJson(assignments);
 
     Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
     query.as_str();
@@ -137,7 +139,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
 
     delete graphMemTopology;
     delete cluster;
-    resp.send(Http::Code::Ok, query.as_str());
+    resp.send(Http::Code::Ok, answerJson);
 }
 
 
