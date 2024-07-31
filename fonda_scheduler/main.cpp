@@ -32,27 +32,24 @@ void runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *clus
     try {
         std::map<int, std::vector<std::string>> partitionMap;
         auto start = std::chrono::system_clock::now();
+        vector<Assignment*> assignments;
+        double avgPeakMem=0;
         switch (algorithmNumber) {
             case 1:
                 throw new runtime_error("no part sched anymore");
             case 2: {
                 double ms =
                         0;
-                double avgPeakMem=0;
-                bool wasCorrect = heft(graphMemTopology, cluster, ms, avgPeakMem);
+                bool wasCorrect = heft(graphMemTopology, cluster, ms, assignments, avgPeakMem);
                 cout << workflowName << " " << ms << (wasCorrect ? " yes" : " no") << " " << avgPeakMem;
             }
                 break;
             case 3: {
-                vector<Assignment*> assignments;
-                double avgPeakMem=0;
                 double d = heuristic(graphMemTopology, cluster,1 , 1, assignments, avgPeakMem);
                 cout << workflowName << " " << d << " yes " << avgPeakMem;
                 break;
             }
             case 4: {
-                vector<Assignment*> assignments;
-                double avgPeakMem=0;
                 double d = heuristic(graphMemTopology, cluster,2 , 1, assignments, avgPeakMem);
                 cout << workflowName << " " << d << " yes " << avgPeakMem;
                 break;
@@ -86,7 +83,7 @@ void runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *clus
     }
     catch (std::runtime_error &e) {
         cout << e.what() << endl;
-        return 1;
+        //return 1;
     }
 }
 
@@ -147,7 +144,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
 
 int main(int argc, char *argv[]) {
     using namespace Rest;
-    Debug = true;
+    Debug = false;//true;
 
     Router router;      // POST/GET/etc. route handler
     Port port(9900);    // port to listen on
@@ -165,12 +162,10 @@ int main(int argc, char *argv[]) {
     endpoint->setHandler(router.handler());
     endpoint->serve();
 
+   // auto start = std::chrono::system_clock::now();
+   // auto end = std::chrono::system_clock::now();
 
-
-        auto start = std::chrono::system_clock::now();
-    auto end = std::chrono::system_clock::now();
-
-    std::chrono::duration<double> elapsed_seconds = end - start;
+    //std::chrono::duration<double> elapsed_seconds = end - start;
 
     return 0;
 }

@@ -18,17 +18,18 @@ class Assignment{
 public:
     vertex_t * task;
     Processor * processor;
+    double startTime;
     double finishTime;
-    double Res;
-    Assignment(vertex_t * t, Processor * p, double ft, double Res){
+
+    Assignment(vertex_t * t, Processor * p, double st, double ft){
         this->task =t;
         this->processor =p;
+        this->startTime = st;
         this->finishTime = ft;
-        this->Res = Res;
     }
 };
 
- bool heft(graph_t *G, Cluster *cluster, double & makespan, double & avgPeakMem);
+ bool heft(graph_t *G, Cluster *cluster, double & makespan, vector<Assignment*> &assignments, double & avgPeakMem);
 
 double calculateSimpleBottomUpRank(vertex_t *task);
 double calculateBLCBottomUpRank(vertex_t *task);
@@ -40,7 +41,7 @@ Processor * tentativeAssignment(vertex_t * v, Processor * pj ,  Cluster* cluster
 double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int evictionVariant, vector<Assignment*> &assignments, double & peakMem);
 vector<pair<vertex_t *, int>> calculateBottomLevels(graph_t *graph, int bottomLevelVariant);
 
-double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj, const Cluster *cluster);
+double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj, const Cluster *cluster, double &startTime);
 void correctRtJJsOnPredecessors(Cluster *cluster, const vertex_t *vertexToAssign, const Processor *procToChange);
 
 void kickEdgesThatNeededToKickedToFreeMemForTask(Processor *bestp, Processor *procToChange);
@@ -51,7 +52,7 @@ double buildRes(const vertex_t *v, const Processor *pj);
 
 void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch);
 
-Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, bool &isValid, double &peakMem);
+Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double &peakMem);
 void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double minFinishTime, Processor *bestp, vertex_t *vertexToAssign,
                                            Processor *procToChange);
 

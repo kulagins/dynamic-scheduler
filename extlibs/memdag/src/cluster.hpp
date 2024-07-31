@@ -29,6 +29,12 @@ protected:
     vertex_t *assignedTask;
     int assignedLeaderId;
     static auto comparePendingMemories(edge_t* a, edge_t*b) -> bool {
+        if(a->weight==b->weight){
+            if(a->head->id==b->head->id)
+                return a->tail->id< b->tail->id;
+            else return a->head->id>b->head->id;
+        }
+        else
         return a->weight<b->weight;
     }
 

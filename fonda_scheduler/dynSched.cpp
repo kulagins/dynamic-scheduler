@@ -93,7 +93,7 @@ graph_t *convertToNonMemRepresentation(graph_t *withMemories,map<int, int> &noMe
 }
 
 
-bool heft(graph_t *G, Cluster *cluster, double & makespan, double & avgPeakMem) {
+bool heft(graph_t *G, Cluster *cluster, double & makespan, vector<Assignment*> &assignments, double & avgPeakMem) {
     Cluster *clusterToCheckCorrectness = new Cluster(cluster);
     vector<pair<vertex_t *, int>> ranks = calculateBottomLevels(G, 1);
     sort(ranks.begin(), ranks.end(),[](pair<vertex_t *, int > a, pair<vertex_t *, int > b){ return  a.second> b.second;});
@@ -107,13 +107,16 @@ bool heft(graph_t *G, Cluster *cluster, double & makespan, double & avgPeakMem) 
             vertex_t *vertex = item.first;
             //cout<<"assign vertex "<<vertex->name<<endl;
             double bestTime =  numeric_limits<double>::max();
+            double startTimeToBestFinish;
             Processor * bestProc = NULL;
             for (size_t j = 0; j < cluster->getNumberProcessors(); ++j) {
                 Processor *tentativeProcessor = cluster->getProcessors().at(j);
-                double finishTime = getFinishTimeWithPredecessorsAndBuffers(vertex, tentativeProcessor, cluster);
+                double startTime;
+                double finishTime = getFinishTimeWithPredecessorsAndBuffers(vertex, tentativeProcessor, cluster, startTime);
                 if ( finishTime <= bestTime) {
                      bestTime = finishTime;
                      bestProc = tentativeProcessor;
+                     startTimeToBestFinish = startTime;
                 }
             }
             if(bestProc==NULL){
@@ -123,11 +126,14 @@ bool heft(graph_t *G, Cluster *cluster, double & makespan, double & avgPeakMem) 
             vertex->assignedProcessor = bestProc;
             bestProc->readyTime = bestTime;
 
+            Assignment * assignment = new Assignment(vertex, bestProc, startTimeToBestFinish, bestTime);
+            assignments.emplace_back(assignment);
+
             Processor *processorToCheckCorrectness = clusterToCheckCorrectness->getProcessorById(bestProc->id);
             double FT = numeric_limits<double>::max();
             bool isValid= true;
-            double peakMem=0;
-            Processor * pinfake = tentativeAssignmentDespiteMemory(vertex,processorToCheckCorrectness,cluster,FT, isValid, peakMem);
+            double peakMem=0, startTime;
+            Processor * pinfake = tentativeAssignmentDespiteMemory(vertex,processorToCheckCorrectness,cluster,FT, startTime, isValid, peakMem);
             bool isChange = pinfake != NULL;
             pinfake = isChange ? pinfake : processorToCheckCorrectness;
             if(FT ==numeric_limits<double>::max()){
@@ -295,7 +301,7 @@ double buildRes(const vertex_t *v, const Processor *pj) {
     return Res;
 }
 
-double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj, const Cluster *cluster) {
+double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj, const Cluster *cluster, double & startTime) {
     double maxRtFromPredecessors=0;
     double bandwidth = cluster->getBandwidth();
     for (int j = 0; j < v->in_degree; j++) {
@@ -313,8 +319,8 @@ double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj,
         }
     }
 
-    double startingtime = max(pj->readyTime, maxRtFromPredecessors);
-    double finishtime = startingtime + v->time/pj->getProcessorSpeed();
+    startTime = max(pj->readyTime, maxRtFromPredecessors);
+    double finishtime = startTime + v->time/pj->getProcessorSpeed();
     return finishtime;
 }
 
@@ -325,6 +331,7 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
     double maxFinishTime=0;
     for (const pair<vertex_t *, int > item: ranks){
         double minFinishTime= numeric_limits<double>::max();
+        double startTimeToMinFinish;
         Processor * bestp = nullptr;
         double peakMemOnBestp=0;
         bool isChange = false;
@@ -332,14 +339,15 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
         if( vertexToAssign->name== "GRAPH_TARGET") continue;
         printInlineDebug("assign vertex "+vertexToAssign->name);
         for (const auto &p: cluster->getProcessors()){
-            double finishTime;
+            double finishTime, startTime;
             //Processor *pinfake  = tentativeAssignment(vertexToAssign, p, cluster, finishTime);
             bool isValid= true;
             double peakMem=0;
-            Processor *pinfake  = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, isValid, peakMem);
+            Processor *pinfake  = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, startTime, isValid, peakMem);
 
             if(isValid && minFinishTime>finishTime){
                 minFinishTime = finishTime;
+                startTimeToMinFinish = startTime;
                 if(isChange)
                     delete bestp;
                 isChange= pinfake != NULL;
@@ -356,6 +364,8 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
         printDebug("Really assigning to proc "+ to_string(procToChange->id));
 
         doRealAssignmentWithMemoryAdjustments(cluster, minFinishTime, bestp, vertexToAssign, procToChange);
+        Assignment * assignment = new Assignment(vertexToAssign, bestp, startTimeToMinFinish, minFinishTime);
+        assignments.emplace_back(assignment);
 
         if(isChange)
             delete bestp;
@@ -396,7 +406,7 @@ void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double minFinishTim
     //correct rt_j,j' for all predecessor buffers
     correctRtJJsOnPredecessors(cluster, vertexToAssign, procToChange);
 
-    //compute available mem
+    //compute available mem and add outgoing edges to pending memories
     double availableMem = procToChange->getAvailableMemory();
     for (int j = 0; j < vertexToAssign->out_degree; j++) {
        procToChange->pendingMemories.insert(vertexToAssign->out_edges[j]);
@@ -519,9 +529,10 @@ vector<pair<vertex_t *, int>> calculateBottomLevels(graph_t *graph, int bottomLe
 }
 
 
-Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, bool &isValid, double & peakMem) {
+Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double & peakMem) {
     Processor * modifiedProc = NULL;
     double maxInputCost = 0.0;
+
     //step 1
     for (int j = 0; j < v->in_degree; j++) {
         edge *incomingEdge = v->in_edges[j];
@@ -567,9 +578,7 @@ Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster
 
     //step 3: tentatively assign
 
-    finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster);
-
-
+    finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster, startTime);
     return modifiedProc;
 }
 
@@ -619,8 +628,8 @@ Processor * tentativeAssignment(vertex_t *v, Processor *pj, Cluster* cluster, do
     }
 
     //step 3: tentatively assign
-
-    finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster);
+    double startTime;
+    finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster, startTime);
 
     return modifiedProc;
 }
@@ -638,9 +647,9 @@ double retrace(graph_t* graph, Cluster* cluster){
         if(processorToCheck==NULL)
             throw new runtime_error("Processor unavailable anymore.");
 
-        double finishTime, peakMem;
+        double finishTime, startTime, peakMem;
         bool isValid=true;
-        tentativeAssignmentDespiteMemory(vertexToCheck,processorToCheck, cluster,finishTime,isValid, peakMem);
+        tentativeAssignmentDespiteMemory(vertexToCheck,processorToCheck, cluster,finishTime, startTime,isValid, peakMem);
 
         if(!isValid)
             throw new runtime_error("Invalid on task "+vertexToCheck->name);
