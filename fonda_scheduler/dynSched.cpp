@@ -357,6 +357,7 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
         }
         if(minFinishTime==numeric_limits<double>::max() ){
             cout<<"Failed to find a processor for "<<vertexToAssign->name<<", FAIL"<<endl;
+            assignments.resize(0);
             return -1;
         }
 
@@ -551,7 +552,7 @@ Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster
     }
     //step 2
 
-    printDebug("proc"+ to_string(pj->id)+"avail mem "+ to_string(pj->availableMemory));
+    printDebug(" proc"+ to_string(pj->id)+"avail mem "+ to_string(pj->availableMemory));
     double Res = buildRes(v, pj);
     peakMem = (Res<0)? 1:(pj->getMemorySize()-Res)/pj->getMemorySize();
 
