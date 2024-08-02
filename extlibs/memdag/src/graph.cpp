@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <graphviz/cgraph.h>
 #include <iostream>
+#include <algorithm>
 #include "fifo.hpp"
 #include "graph.hpp"
 
@@ -654,7 +655,11 @@ vertex_t * findVertexByName(graph_t* graph, std::string toFind){
     vertex_t *vertex = graph->first_vertex;
 
     while(vertex!= nullptr){
-        if (vertex->name==toFind) return vertex;
+        std::string vname = vertex->name;
+        std::transform(vname.begin(), vname.end(), vname.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+
+        if (vname==toFind) return vertex;
         vertex = vertex->next;
     }
     return NULL;
