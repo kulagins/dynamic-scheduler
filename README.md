@@ -17,7 +17,8 @@
 
 ** Current State  **
 * The scheduler does not compute an average or other aggregation of time and memory weights, but rather takes the first value
-* 
+
+** TODO Needs libpistache, libgraphviz and igraph. The igraph has to be 0.7.1**
 
 **Required JSON to start a new workflow (example)**
 
