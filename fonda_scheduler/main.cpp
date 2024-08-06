@@ -35,8 +35,11 @@ vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology
         vector<Assignment*> assignments;
         double avgPeakMem=0;
         switch (algorithmNumber) {
-            case 1:
-                throw new runtime_error("no part sched anymore");
+            case 1: {
+                double d = heuristic(graphMemTopology, cluster, 1, 1, assignments, avgPeakMem);
+                cout << workflowName << " " << d << " yes " << avgPeakMem;
+                return assignments;
+            }
             case 2: {
                 double ms =
                         0;
@@ -119,7 +122,9 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     graphMemTopology = read_dot_graph(filename.c_str(), NULL, NULL, NULL);
     checkForZeroMemories(graphMemTopology);
 
+    cout<<"build clust"<<endl;
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
+    cout<<"fill graph"<<endl;
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
    // long biggestMemInGraph = getBiggestMem(graphMemTopology);
@@ -128,7 +133,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
  //       normalizeToBiggestProcessorMem(graphMemTopology, maxMemInCluster, biggestMemInGraph);
   //  }
 
-
+    cout<<"run alg"<<endl;
     const vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
     const string  answerJson =
             answerWithJson(assignments, workflowName);

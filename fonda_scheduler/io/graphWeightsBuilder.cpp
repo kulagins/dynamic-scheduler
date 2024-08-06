@@ -216,8 +216,12 @@ namespace Fonda {
         Cluster *cluster = new Cluster();
         int id = 0;
         for (auto element: query["cluster"]["machines"]) {
+            Processor *p;
 
-            Processor *p = new Processor(element["memory"], element["speed"], id);
+            if(   element.contains("speed")) {
+                p = new Processor(element["memory"], element["speed"], id);
+            }
+            else p = new Processor(element["memory"], 1, id);
             id++;
             cluster->addProcessor(p);
 
