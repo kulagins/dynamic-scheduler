@@ -131,7 +131,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
 
     const vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
     const string  answerJson =
-            answerWithJson(assignments);
+            answerWithJson(assignments, workflowName);
 
     Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
     query.as_str();
@@ -146,13 +146,14 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
 
 int main(int argc, char *argv[]) {
     using namespace Rest;
-    Debug = false;//true;
+    Debug = true;//true;
 
     Router router;      // POST/GET/etc. route handler
     Port port(9900);    // port to listen on
     Address addr(Ipv4::any(), port);
     std::shared_ptr<Http::Endpoint> endpoint = std::make_shared<Http::Endpoint>(addr);
-    auto opts = Http::Endpoint::options().threads(1);   // how many threads for the server
+   // auto opts = Http::Endpoint::options().threads(1);   // how many threads for the server
+    auto opts = Http::Endpoint::options().maxRequestSize(262144).threads(1);
     endpoint->init(opts);
 
     /* routes! */

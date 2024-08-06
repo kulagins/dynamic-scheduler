@@ -9,13 +9,23 @@
 
 bool Debug;
 
-string answerWithJson(vector<Assignment *> assignments){
+string answerWithJson(vector<Assignment *> assignments, string workflowName){
 
     nlohmann::json jsonObject;
 
+    jsonObject["id"] = workflowName;
+
+    //"schedule": {
+
+    nlohmann::json scheduleJson;
+
+    // Serialize each Assignment object and add to the schedule object with task name as key
     for (const auto& assignment : assignments) {
-        jsonObject[assignment->task->name] = assignment->toJson();
+        scheduleJson[assignment->task->name] = assignment->toJson();
     }
+
+    // Add the schedule to the main JSON object
+    jsonObject["schedule"] = scheduleJson;
 
     // Print the JSON object
     std::cout << jsonObject.dump(4) << std::endl;

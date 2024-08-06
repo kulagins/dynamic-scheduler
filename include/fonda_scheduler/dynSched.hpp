@@ -71,6 +71,6 @@ void takeOverPartNumbers(graph_t *graph, int *parts, int i);
 graph_t *convertToNonMemRepresentation(graph_t *withMemories, map<int, int> &noMemToWithMem);
 void copyVertexNames(graph_t* graph, nlohmann::json body);
 
-string answerWithJson(vector<Assignment *> assignments);
+string answerWithJson(vector<Assignment *> assignments, string workflowName);
 
 #endif //RESHI_TXT_DYNSCHED_HPP
