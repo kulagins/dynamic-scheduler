@@ -228,6 +228,7 @@ namespace Fonda {
         }
         cluster->initHomogeneousBandwidth(cluster->getNumberProcessors(), 1);
         Cluster::setFixedCluster(cluster);
+        return cluster;
     }
 
     void fillGraphWeightsFromExternalSource(graph_t *graphMemTopology, nlohmann::json query) {
