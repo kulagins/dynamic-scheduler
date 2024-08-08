@@ -122,9 +122,9 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     graphMemTopology = read_dot_graph(filename.c_str(), NULL, NULL, NULL);
     checkForZeroMemories(graphMemTopology);
 
-    cout<<"build clust"<<endl;
+    //cout<<"build clust"<<endl;
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
-    cout<<"fill graph"<<endl;
+    //cout<<"fill graph"<<endl;
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
    // long biggestMemInGraph = getBiggestMem(graphMemTopology);
@@ -133,7 +133,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
  //       normalizeToBiggestProcessorMem(graphMemTopology, maxMemInCluster, biggestMemInGraph);
   //  }
 
-    cout<<"run alg"<<endl;
+   // cout<<"run alg"<<endl;
     const vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
     const string  answerJson =
             answerWithJson(assignments, workflowName);
@@ -151,7 +151,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
 
 int main(int argc, char *argv[]) {
     using namespace Rest;
-    Debug = true;//true;
+    Debug = false;//true;
 
     Router router;      // POST/GET/etc. route handler
     Port port(9900);    // port to listen on

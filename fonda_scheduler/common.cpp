@@ -27,8 +27,6 @@ string answerWithJson(vector<Assignment *> assignments, string workflowName){
     // Add the schedule to the main JSON object
     jsonObject["schedule"] = scheduleJson;
 
-    // Print the JSON object
-    std::cout << jsonObject.dump(4) << std::endl;
     return to_string(jsonObject);
 }
 
