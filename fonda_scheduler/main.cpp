@@ -27,6 +27,10 @@
 using namespace Pistache;
 using json = nlohmann::json;
 
+graph_t *currentWorkflow=NULL;
+string currentName;
+Cluster * currentCluster;
+vector<Assignment *> currentAssignment;
 
 vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName){
     try {
@@ -101,8 +105,61 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
    // const Rest::TypedParam &param = req.param("text");
     //Http::Uri::Query &query = req.query();
 
-    std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
-    resp.send(Http::Code::Ok, text);
+    const string &basicString = req.body();
+    json bodyjson;
+    bodyjson = json::parse(basicString);
+
+    const string &bodyString = to_string(bodyjson);
+    cout<<endl;
+    cout<<bodyString<<endl;
+
+    double timestamp = 5000; //TODO extract from the query
+    
+    //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
+
+    currentAssignment.resize(0);
+    for (auto &processor: currentCluster->getProcessors()){
+        processor->assignSubgraph(NULL);
+        processor->isBusy= false;
+        processor->readyTime=timestamp;
+    }
+
+
+    if(currentWorkflow!=NULL){
+        for (auto element: bodyjson["running_tasks"]) {
+            string elem_string = trimQuotes(to_string(element));
+            //TODO deal with running tasks!
+           // vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
+           // double futureReadyTime = timestamp +
+           // doRealAssignmentWithMemoryAdjustments(currentCluster, minFinishTime, bestp, vertexToAssign, procToChange);
+           // Assignment * assignment = new Assignment(vertexToAssign, bestp, startTimeToMinFinish, minFinishTime);
+          //  assignments.emplace_back(assignment);
+          }
+
+        for (auto element: bodyjson["finished_tasks"]) {
+            string elem_string = trimQuotes(to_string(element));
+            vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
+            remove_vertex(currentWorkflow,vertex);
+
+
+        }
+
+        vector<Assignment*> assignments;
+        double avgPeakMem=0;
+        double d = heuristic(currentWorkflow, currentCluster, 1, 1, assignments, avgPeakMem);
+        const string  answerJson =
+                answerWithJson(assignments, currentName);
+
+        Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
+        query.as_str();
+        //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
+
+        currentAssignment.resize(0);
+        currentAssignment = assignments;
+        resp.send(Http::Code::Ok, answerJson);
+        
+    }else
+        resp.send(Http::Code::Not_Acceptable, "No workflow has been scheduled yet.");
 }
 
 void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
@@ -115,6 +172,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     bodyjson = json::parse(basicString);
 
     string workflowName = bodyjson["workflow"]["name"];
+    currentName= workflowName;
     int algoNumber = bodyjson["algorithm"].get<int>();
 
     filename+= workflowName;
@@ -142,8 +200,13 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     query.as_str();
     //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
 
-    delete graphMemTopology;
-    delete cluster;
+    //delete graphMemTopology;
+    delete currentWorkflow;
+    currentWorkflow = graphMemTopology;
+    delete currentCluster;
+    currentCluster = cluster;
+    currentAssignment.resize(0);
+    currentAssignment = assignments;
     resp.send(Http::Code::Ok, answerJson);
 }
 
@@ -163,7 +226,7 @@ int main(int argc, char *argv[]) {
 
     /* routes! */
     Routes::Get(router, "/hello", Routes::bind(&hello));
-    //Routes::Get(router, "/wf/:id/update?", Routes::bind(&update));
+    Routes::Post(router, "/wf/:id/update", Routes::bind(&update));
     Routes::Post(router, "/wf/new/", Routes::bind(&new_schedule));
     //Routes::Get(router, "/http_get", Routes::bind(&http_get));
 

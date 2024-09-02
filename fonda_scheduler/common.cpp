@@ -9,6 +9,29 @@
 
 bool Debug;
 
+
+std::string trimQuotes(const std::string& str) {
+    if (str.empty()) {
+        return str; // Return the empty string if input is empty
+    }
+
+    size_t start = 0;
+    size_t end = str.length() - 1;
+
+    // Check for leading quote
+    if (str[start] == '"') {
+        start++;
+    }
+
+    // Check for trailing quote
+    if (str[end] == '"') {
+        end--;
+    }
+
+    // Return the trimmed string
+    return str.substr(start, end - start + 1);
+}
+
 string answerWithJson(vector<Assignment *> assignments, string workflowName){
 
     nlohmann::json jsonObject;

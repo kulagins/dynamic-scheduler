@@ -59,7 +59,7 @@ double buildRes(const vertex_t *v, const Processor *pj);
 void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch);
 
 Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double &peakMem);
-void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double minFinishTime, Processor *bestp, vertex_t *vertexToAssign,
+void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp, vertex_t *vertexToAssign,
                                            Processor *procToChange);
 
 double retrace(graph_t* graph, Cluster* cluster);

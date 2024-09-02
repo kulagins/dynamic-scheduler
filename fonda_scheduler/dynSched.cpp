@@ -381,7 +381,7 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
     return maxFinishTime;
 }
 
-void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double minFinishTime, Processor *bestp, vertex_t *vertexToAssign,
+void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp, vertex_t *vertexToAssign,
                                            Processor *procToChange) {
     vertexToAssign->assignedProcessor= procToChange;
 
@@ -416,12 +416,12 @@ void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double minFinishTim
     availableMem = removeInputPendingEdgesFromEverywherePendingMemAndBuffer(cluster, vertexToAssign, procToChange,
                                                                             availableMem);
     assert(availableMem>=0);
-    printDebug("to proc "+ to_string(procToChange->id)+ " remaining mem "+ to_string(availableMem)+ "ready time "+
-                                                                                                    to_string(minFinishTime)+"\n");
+    printDebug("to proc " + to_string(procToChange->id) + " remaining mem " + to_string(availableMem) + "ready time " +
+               to_string(futureReadyTime) + "\n");
     assert(availableMem <= (procToChange->getMemorySize() + 0.001));
     procToChange->setAvailableMemory(availableMem);
-    procToChange->readyTime = minFinishTime;
-    vertexToAssign->makespan = minFinishTime;
+    procToChange->readyTime = futureReadyTime;
+    vertexToAssign->makespan = futureReadyTime;
 }
 
 void correctRtJJsOnPredecessors(Cluster *cluster, const vertex_t *vertexToAssign, const Processor *procToChange) {

@@ -20,5 +20,6 @@ void checkForZeroMemories(graph_t *graph);
 long getBiggestMem(graph_t* graph);
 
 void normalizeToBiggestProcessorMem(graph_t* graph, double biggestProcMem, long biggestMemInGraph);
+std::string trimQuotes(const std::string& str);
 
 #endif //FONDA_SCHED_COMMON_HPP
