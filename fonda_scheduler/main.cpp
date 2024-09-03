@@ -112,7 +112,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     const string &bodyString = to_string(bodyjson);
 
     double timestamp = 5000; //TODO extract from the query
-    
+
     //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
 
     currentAssignment.resize(0);
@@ -137,7 +137,10 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
         for (auto element: bodyjson["finished_tasks"]) {
             string elem_string = trimQuotes(to_string(element));
             vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
-            remove_vertex(currentWorkflow,vertex);
+            if(vertex==NULL)
+                cout<<"Update: not found vertex to delete: "<<elem_string<<endl;
+            else
+                remove_vertex(currentWorkflow,vertex);
 
 
         }
@@ -155,7 +158,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
         currentAssignment.resize(0);
         currentAssignment = assignments;
         resp.send(Http::Code::Ok, answerJson);
-        
+
     }else
         resp.send(Http::Code::Not_Acceptable, "No workflow has been scheduled yet.");
 }

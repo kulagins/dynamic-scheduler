@@ -257,7 +257,57 @@ namespace Fonda {
             vertexToSet->memoryRequirement = memToSet;
 
         }
+        retrieveEdgeWeights(graphMemTopology, query);
     }
+
+   void
+    retrieveEdgeWeights(graph_t *graphMemTopology, nlohmann::json query) {
+
+        map<vertex_t*, double> wchars, inputsizes;
+       for (const auto& [task_name, task_data] : query["workflow"]["tasks"].items()) {
+           //std::cout << "Task name: " << task_name << std::endl;
+           vertex_t *vertexToSet = findVertexByName(graphMemTopology, task_name);
+
+           double sumW=0;
+           int cntr=0;
+           for (const auto &time_value: task_data["wchar"].items()){
+               sumW+=time_value.value().get<double>();
+               cntr++;
+
+           }
+           wchars.emplace(vertexToSet, (cntr==1?0: sumW / cntr));
+
+           sumW=0;
+           cntr=0;
+           for (const auto &time_value: task_data["taskinputsize"].items()){
+               sumW+=time_value.value().get<double>();
+               cntr++;
+
+           }
+           inputsizes.emplace(vertexToSet, (cntr==1?0: sumW / cntr));
+       }
+
+        // Rebalance edge values ????
+
+       vertex_t *vertex = graphMemTopology->first_vertex;
+       while (vertex != NULL) {
+           double totalOutput =0;
+           for (int j = 0; j < vertex->in_degree; j++) {
+               edge *incomingEdge = vertex->in_edges[j];
+               vertex_t *predecessor = incomingEdge->tail;
+               totalOutput += wchars.at(predecessor);
+           }
+           for (int j = 0; j < vertex->in_degree; j++){
+               edge *incomingEdge = vertex->in_edges[j];
+               vertex_t *predecessor = incomingEdge->tail;
+               incomingEdge->weight =(wchars.at(predecessor)/ totalOutput) * inputsizes.at(vertex);
+           }
+
+           vertex = vertex->next;
+       }
+
+    }
+
 
 
 }

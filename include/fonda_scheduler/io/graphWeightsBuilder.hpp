@@ -32,6 +32,7 @@ namespace Fonda {
     Cluster * buildClusterFromJson(nlohmann::json query);
 
     void fillGraphWeightsFromExternalSource(graph_t *graphMemTopology, nlohmann::json query);
+    void retrieveEdgeWeights(graph_t *graphMemTopology, nlohmann::json query);
 }
 
 #endif
