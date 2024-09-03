@@ -236,9 +236,24 @@ namespace Fonda {
             //std::cout << "Task name: " << task_name << std::endl;
             vertex_t *vertexToSet = findVertexByName(graphMemTopology, task_name);
 
-            auto timeToSet = task_data["time_predicted"].items().begin().value().get<double>() ;
+            double sumW=0;
+            int cntr=0;
+            for (const auto &time_value: task_data["time_predicted"].items()){
+                sumW+=time_value.value().get<double>();
+                cntr++;
+
+            }
+            double timeToSet =sumW / cntr ;
             vertexToSet->time = timeToSet;
-            auto memToSet = task_data["memory_predicted"].items().begin().value().get<double>() ;
+
+             sumW=0;
+             cntr=0;
+            for (const auto &time_value: task_data["memory_predicted"].items()){
+                sumW+=time_value.value().get<double>();
+                cntr++;
+
+            }
+            auto memToSet = sumW/cntr ;
             vertexToSet->memoryRequirement = memToSet;
 
         }

@@ -110,8 +110,6 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     bodyjson = json::parse(basicString);
 
     const string &bodyString = to_string(bodyjson);
-    cout<<endl;
-    cout<<bodyString<<endl;
 
     double timestamp = 5000; //TODO extract from the query
     
@@ -128,12 +126,12 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     if(currentWorkflow!=NULL){
         for (auto element: bodyjson["running_tasks"]) {
             string elem_string = trimQuotes(to_string(element));
-            //TODO deal with running tasks!
+           //TODO deal with running tasks!
            // vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
            // double futureReadyTime = timestamp +
            // doRealAssignmentWithMemoryAdjustments(currentCluster, minFinishTime, bestp, vertexToAssign, procToChange);
            // Assignment * assignment = new Assignment(vertexToAssign, bestp, startTimeToMinFinish, minFinishTime);
-          //  assignments.emplace_back(assignment);
+           //  assignments.emplace_back(assignment);
           }
 
         for (auto element: bodyjson["finished_tasks"]) {
