@@ -1,61 +1,6 @@
-//
-// Created by kulagins on 11.03.24.
-//
-
 #include "fonda_scheduler/dynSched.hpp"
-//#include "fonda_scheduler/partSched.hpp"
 
-void copyVertexNames(graph_t* graph, nlohmann::json body){
-    throw new runtime_error("copy vertex names not implemented!");
-}
-void takeOverPartNumbers(graph_t *graph, int *parts, int numLeaders) {
 
-    std::set<int> sa(parts + 1, parts + numLeaders + 1);
-    auto maxIterator = std::max_element(sa.begin(), sa.end());
-
-    for (int i = 1; i <= graph->number_of_vertices; i++) {
-        graph->vertices_by_id[i]->leader = parts[i];
-        // cout<<"Assignt to vertex "<<graph->vertices_by_id[i]->name<<" part "<<parts [i+1]<<endl;
-    }
-
-    if (graph->number_of_vertices > numLeaders) {
-        int firstExtraIndex = numLeaders;
-        int cntr = 1;
-        for (int i = firstExtraIndex + 1; i <= graph->number_of_vertices; i++) {
-            graph->vertices_by_id[i]->leader = *maxIterator + cntr;
-            //cout<<"Assign extra to vertex "<<graph->vertices_by_id[i]->name<<" part "<<graph->vertices_by_id[i]->leader<<endl;
-            cntr++;
-        }
-    }
-}
-
-double makespan(graph_t *graph, bool allowUnassigned, double beta) {
-
-    graph->target->bottom_level = graph->target->time;
-    for (vertex_t *u = graph->target; u; u = next_vertex_in_anti_topological_order(graph, u)) {
-        u->bottom_level = 0;
-        for (int i = 0; i < u->out_degree; i++) {
-            edge *edgeuv = u->out_edges[i];
-            vertex_t *v = edgeuv->head; // edge u->v
-            //if (edgeuv->status == edge_status_t::IN_CUT) {
-            double v_bl = v->bottom_level + edgeuv->weight/beta;
-            u->bottom_level = max_memdag(u->bottom_level, v_bl);
-            //  } else {
-            //     u->bottom_level += v->bottom_level;
-            // }
-        }
-        //auto processorSpeed =  u->assignedProcessor==NULL? 1: u->assignedProcessor->getProcessorSpeed();
-        if(!allowUnassigned && u->assignedProcessor==NULL && u->name!= "GRAPH_TARGET" && u->name!= "GRAPH_SOURCE"){
-            cout<<"unassigned vertex "<<u->name<<endl;
-            throw new runtime_error("unassigned vertex "+u->name);
-        }
-
-        auto processorSpeed = (u->assignedProcessor==NULL && (u->time==0 || allowUnassigned))? 1: u->assignedProcessor->getProcessorSpeed();
-        u->bottom_level += u->time / processorSpeed;
-    }
-
-    return graph->source->bottom_level;
-}
 
 graph_t *convertToNonMemRepresentation(graph_t *withMemories,map<int, int> &noMemToWithMem) {
     enforce_single_source_and_target(withMemories);
@@ -245,24 +190,6 @@ std::vector < std::pair< vertex_t *, int> >  calculateMMBottomUpRank(graph_t * g
     return scheduleOnOriginal;
 }
 
-double makespanFromHEFT(graph_t *graph, vector<int> assignedProcessor, Cluster * cluster) {
-    int *array = new int[assignedProcessor.size()];
-    std::copy(assignedProcessor.begin(), assignedProcessor.end(), array);
-
-    takeOverPartNumbers(graph, array, assignedProcessor.size());
-    delete[] array;
-
-
-    vertex_t *vertex = graph->first_vertex;
-    while (vertex != NULL ) {
-        if( vertex->name!= "GRAPH_TARGET" && vertex->name!= "GRAPH_SOURCE")
-            vertex->assignedProcessor = cluster->getProcessors().at(vertex->leader);
-        vertex = vertex->next;
-    }
-    auto ms = makespan(graph, false, cluster->getBandwidth());
-    return ms;
-}
-
 
 void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch) {
 
@@ -281,7 +208,7 @@ void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &st
     }
 }
 
-double buildRes(const vertex_t *v, const Processor *pj) {
+double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere3Part(const vertex_t *v, const Processor *pj) {
     double Res = pj->availableMemory - v->memoryRequirement;
 
     //sum c_uv not on pj
@@ -300,6 +227,12 @@ double buildRes(const vertex_t *v, const Processor *pj) {
     }
     return Res;
 }
+
+double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere(const vertex_t *v, const Processor *pj) {
+    double Res = pj->availableMemory - v->memoryRequirement;
+    return Res;
+}
+
 
 double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj, const Cluster *cluster, double & startTime) {
     double maxRtFromPredecessors=0;
@@ -330,17 +263,20 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
     sort(ranks.begin(), ranks.end(),[](pair<vertex_t *, int > a, pair<vertex_t *, int > b){ return  a.second> b.second;});
     double maxFinishTime=0;
     for (const pair<vertex_t *, int > item: ranks){
+
+        vertex_t *vertexToAssign = item.first;
+        if( vertexToAssign->name== "GRAPH_TARGET") continue;
+        printInlineDebug("assign vertex "+vertexToAssign->name);
+
         double minFinishTime= numeric_limits<double>::max();
         double startTimeToMinFinish;
         Processor * bestp = nullptr;
         double peakMemOnBestp=0;
         bool isChange = false;
-        vertex_t *vertexToAssign = item.first;
-        if( vertexToAssign->name== "GRAPH_TARGET") continue;
-        printInlineDebug("assign vertex "+vertexToAssign->name);
+
         for (const auto &p: cluster->getProcessors()){
             double finishTime, startTime;
-            //Processor *pinfake  = tentativeAssignment(vertexToAssign, p, cluster, finishTime);
+
             bool isValid= true;
             double peakMem=0;
             Processor *pinfake  = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, startTime, isValid, peakMem);
@@ -470,7 +406,6 @@ void kickEdgesThatNeededToKickedToFreeMemForTask(Processor *bestp, Processor *pr
     auto it = procToChange->pendingMemories.begin();
     edge_t * pEdge = NULL;
     int i = 0;
-    int numProcMems = procToChange->pendingMemories.size();
     if(!procToChange->pendingMemories.empty()){
         int bp_size = bestp->pendingMemories.size();
          int numIterations =0;
@@ -532,7 +467,6 @@ vector<pair<vertex_t *, int>> calculateBottomLevels(graph_t *graph, int bottomLe
 
 Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double & peakMem) {
     Processor * modifiedProc = NULL;
-    double maxInputCost = 0.0;
 
     //step 1
     for (int j = 0; j < v->in_degree; j++) {
@@ -553,7 +487,7 @@ Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster
     //step 2
 
     printDebug(" proc"+ to_string(pj->id)+"avail mem "+ to_string(pj->availableMemory));
-    double Res = buildRes(v, pj);
+    double Res = howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere(v, pj);
     peakMem = (Res<0)? 1:(pj->getMemorySize()-Res)/pj->getMemorySize();
 
     if(Res <0){
@@ -581,88 +515,6 @@ Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster
 
     finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster, startTime);
     return modifiedProc;
-}
-
-Processor * tentativeAssignment(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime) {
-    Processor * modifiedProc = NULL;
-    double maxInputCost = 0.0;
-    //step 1
-    for (int j = 0; j < v->in_degree; j++) {
-        edge *incomingEdge = v->in_edges[j];
-        vertex_t *predecessor = incomingEdge->tail;
-        if (predecessor->assignedProcessor->id == pj->id) {
-            if (std::find_if(pj->pendingMemories.begin(), pj->pendingMemories.end(),
-                             [incomingEdge](edge_t *edge) {
-                                 return incomingEdge->head->name == edge->head->name &&
-                                        incomingEdge->tail->name == edge->tail->name;
-                             })
-                == pj->pendingMemories.end()) {
-                printDebug("Failed because predecessors memory has been evicted");
-                finishTime= numeric_limits<double>::max();
-                return NULL;//pj;
-            }
-        }
-    }
-    //step 2
-
-    double Res = buildRes(v, pj);
-
-
-    if(Res <0){
-        //evict
-
-        modifiedProc = new Processor(pj);
-        double currentlyAvailableBuffer;
-        double stillTooMuch;
-        stillTooMuch= Res;
-        currentlyAvailableBuffer= modifiedProc->availableBuffer;
-        evict(modifiedProc, currentlyAvailableBuffer, stillTooMuch);
-
-
-        if (stillTooMuch < 0 || currentlyAvailableBuffer < 0) {
-            // could not evict enough
-            printInlineDebug("could not evict enough");
-            if(stillTooMuch<0) printDebug("due to mem ");
-            if(currentlyAvailableBuffer<0) printDebug("due to buffer");
-            return NULL;
-        }
-    }
-
-    //step 3: tentatively assign
-    double startTime;
-    finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster, startTime);
-
-    return modifiedProc;
-}
-
-double retrace(graph_t* graph, Cluster* cluster){
-    auto ranks = calculateMMBottomUpRank(graph);
-    double maxFinishTime=0;
-    for (const auto &item: ranks){
-        auto vertexToCheck = item.first;
-        if(vertexToCheck->name=="GRAPH_TARGET") continue;
-        auto processor = vertexToCheck->assignedProcessor;
-        if(processor==NULL)
-            throw new runtime_error("No processor assigned");
-        auto processorToCheck= cluster->getProcessorById(processor->id);
-        if(processorToCheck==NULL)
-            throw new runtime_error("Processor unavailable anymore.");
-
-        double finishTime, startTime, peakMem;
-        bool isValid=true;
-        tentativeAssignmentDespiteMemory(vertexToCheck,processorToCheck, cluster,finishTime, startTime,isValid, peakMem);
-
-        if(!isValid)
-            throw new runtime_error("Invalid on task "+vertexToCheck->name);
-
-
-        doRealAssignmentWithMemoryAdjustments(cluster,finishTime,processorToCheck,
-                                                  vertexToCheck, processorToCheck);
-
-        vertexToCheck->makespan = finishTime;
-        maxFinishTime = max(maxFinishTime, finishTime);
-    }
-    return maxFinishTime;
 }
 
 double exponentialTransformation(double x, double median, double scaleFactor) {

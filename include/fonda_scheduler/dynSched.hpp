@@ -41,7 +41,6 @@ double calculateSimpleBottomUpRank(vertex_t *task);
 double calculateBLCBottomUpRank(vertex_t *task);
 std::vector < std::pair< vertex_t *, int> >  calculateMMBottomUpRank(graph_t * graph);
 
-double makespanFromHEFT( graph_t * graph, vector<int> assignedProcessor, Cluster * cluster);
 Processor * tentativeAssignment(vertex_t * v, Processor * pj ,  Cluster* cluster, double &finishTime);
 
 double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int evictionVariant, vector<Assignment*> &assignments, double & peakMem);
@@ -54,23 +53,17 @@ void kickEdgesThatNeededToKickedToFreeMemForTask(Processor *bestp, Processor *pr
 double removeInputPendingEdgesFromEverywherePendingMemAndBuffer(const Cluster *cluster, const vertex_t *vertexToAssign,
                                                                 Processor *procToChange, double availableMem);
 
-double buildRes(const vertex_t *v, const Processor *pj);
+double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere(const vertex_t *v, const Processor *pj);
+double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere3Part(const vertex_t *v, const Processor *pj);
 
 void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch);
 
 Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double &peakMem);
 void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp, vertex_t *vertexToAssign,
                                            Processor *procToChange);
-
-double retrace(graph_t* graph, Cluster* cluster);
-
-void applyExponentialTransformationWithFactor(double factor, graph_t* graph);
-
-double makespan(graph_t *graph, bool allowUnassigned, double beta);
-void takeOverPartNumbers(graph_t *graph, int *parts, int i);
 graph_t *convertToNonMemRepresentation(graph_t *withMemories, map<int, int> &noMemToWithMem);
-void copyVertexNames(graph_t* graph, nlohmann::json body);
 
 string answerWithJson(vector<Assignment *> assignments, string workflowName);
+vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName);
 
 #endif //RESHI_TXT_DYNSCHED_HPP

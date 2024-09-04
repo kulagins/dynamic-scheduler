@@ -32,73 +32,6 @@ string currentName;
 Cluster * currentCluster;
 vector<Assignment *> currentAssignment;
 
-vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName){
-    try {
-        std::map<int, std::vector<std::string>> partitionMap;
-        auto start = std::chrono::system_clock::now();
-        vector<Assignment*> assignments;
-        double avgPeakMem=0;
-        switch (algorithmNumber) {
-            case 1: {
-                double d = heuristic(graphMemTopology, cluster, 1, 1, assignments, avgPeakMem);
-                cout << workflowName << " " << d << " yes " << avgPeakMem;
-                return assignments;
-            }
-            case 2: {
-                double ms =
-                        0;
-                bool wasCorrect = heft(graphMemTopology, cluster, ms, assignments, avgPeakMem);
-                cout << workflowName << " " << ms << (wasCorrect ? " yes" : " no") << " " << avgPeakMem;
-                return assignments;
-            }
-                break;
-            case 3: {
-                double d = heuristic(graphMemTopology, cluster,1 , 1, assignments, avgPeakMem);
-                cout << workflowName << " " << d << " yes " << avgPeakMem;
-                return assignments;
-            }
-            case 4: {
-                double d = heuristic(graphMemTopology, cluster,2 , 1, assignments, avgPeakMem);
-                cout << workflowName << " " << d << " yes " << avgPeakMem;
-                break;
-            }
-            case 5: {
-                vector<Assignment*> assignments;
-                double avgPeakMem=0;
-                double d = heuristic(graphMemTopology, cluster,3 , 1, assignments, avgPeakMem);
-                cout << workflowName << " " << d << ((d==-1)? "no":" yes " )<< avgPeakMem;
-                return assignments;
-            }
-            case 6: {
-                Cluster *cluster2 = new Cluster(cluster);
-                Cluster *cluster3 = new Cluster(cluster);
-                vector<Assignment*> assignments;
-                double avgPeakMem=0;
-                double d = heuristic(graphMemTopology, cluster,3 , 1, assignments, avgPeakMem);
-                applyExponentialTransformationWithFactor(0.15, graphMemTopology);
-                double d2 = retrace(graphMemTopology, cluster2);
-                double d3 = heuristic(graphMemTopology, cluster3, 3,1,assignments, avgPeakMem);
-                return assignments;
-            }
-            default:
-                cout << "UNKNOWN ALGORITHM" << endl;
-        }
-        auto end = std::chrono::system_clock::now();
-        std::chrono::duration<double> elapsed_seconds = end-start;
-        std::cout <<" " <<elapsed_seconds.count() << endl;
-
-    }
-    catch (std::runtime_error &e) {
-        cout << e.what() << endl;
-        //return 1;
-    }
-}
-
-
-void hello(const Rest::Request& request, Http::ResponseWriter response)
-{
-    response.send(Http::Code::Ok, "world!");
-}
 
 void update(const Rest::Request& req, Http::ResponseWriter resp)
 {
@@ -181,27 +114,18 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     graphMemTopology = read_dot_graph(filename.c_str(), NULL, NULL, NULL);
     checkForZeroMemories(graphMemTopology);
 
-    //cout<<"build clust"<<endl;
+
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
-    //cout<<"fill graph"<<endl;
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
-   // long biggestMemInGraph = getBiggestMem(graphMemTopology);
-   // double maxMemInCluster = cluster->getMemBiggestFreeProcessor()->getMemorySize();
-  //  if (biggestMemInGraph > maxMemInCluster) {
- //       normalizeToBiggestProcessorMem(graphMemTopology, maxMemInCluster, biggestMemInGraph);
-  //  }
-
-   // cout<<"run alg"<<endl;
     const vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
     const string  answerJson =
             answerWithJson(assignments, workflowName);
+    cout<<answerJson<<endl;
 
     Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
     query.as_str();
-    //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
 
-    //delete graphMemTopology;
     delete currentWorkflow;
     currentWorkflow = graphMemTopology;
     delete currentCluster;
@@ -211,8 +135,6 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     resp.send(Http::Code::Ok, answerJson);
 }
 
-
-
 int main(int argc, char *argv[]) {
     using namespace Rest;
     Debug = false;//true;
@@ -221,25 +143,65 @@ int main(int argc, char *argv[]) {
     Port port(9900);    // port to listen on
     Address addr(Ipv4::any(), port);
     std::shared_ptr<Http::Endpoint> endpoint = std::make_shared<Http::Endpoint>(addr);
-   // auto opts = Http::Endpoint::options().threads(1);   // how many threads for the server
     auto opts = Http::Endpoint::options().maxRequestSize(262144).threads(1);
     endpoint->init(opts);
 
     /* routes! */
-    Routes::Get(router, "/hello", Routes::bind(&hello));
     Routes::Post(router, "/wf/:id/update", Routes::bind(&update));
     Routes::Post(router, "/wf/new/", Routes::bind(&new_schedule));
-    //Routes::Get(router, "/http_get", Routes::bind(&http_get));
+
 
     endpoint->setHandler(router.handler());
     endpoint->serve();
 
-   // auto start = std::chrono::system_clock::now();
-   // auto end = std::chrono::system_clock::now();
-
-    //std::chrono::duration<double> elapsed_seconds = end - start;
 
     return 0;
 }
 
+vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName){
+    vector<Assignment*> assignments;
+    try {
+
+        auto start = std::chrono::system_clock::now();
+        double avgPeakMem=0;
+        switch (algorithmNumber) {
+            case 1: {
+                double d = heuristic(graphMemTopology, cluster, 2, 1, assignments, avgPeakMem);
+                cout << workflowName << " " << d << " yes " << avgPeakMem;
+                break;
+            }
+            case 2: {
+                double ms =
+                        0;
+                bool wasCorrect = heft(graphMemTopology, cluster, ms, assignments, avgPeakMem);
+                cout << workflowName << " " << ms << (wasCorrect ? " yes" : " no") << " " << avgPeakMem;
+                break;
+            }
+            case 3: {
+                double d = heuristic(graphMemTopology, cluster,1 , 1, assignments, avgPeakMem);
+                cout << workflowName << " " << d << " yes " << avgPeakMem;
+                break;
+            }
+            case 4: {
+                double d = heuristic(graphMemTopology, cluster,3 , 1, assignments, avgPeakMem);
+                cout << workflowName << " " << d << ((d==-1)? "no":" yes " )<< avgPeakMem;
+               break;
+            }
+            default:
+                cout << "UNKNOWN ALGORITHM" << endl;
+        }
+        auto end = std::chrono::system_clock::now();
+        std::chrono::duration<double> elapsed_seconds = end-start;
+        std::cout <<"duration of algorithm " <<elapsed_seconds.count() << endl;
+
+    }
+    catch (std::runtime_error &e) {
+        cout << e.what() << endl;
+        //return 1;
+    }
+    catch(...){
+        cout<<"Unknown error happened"<<endl;
+    }
+    return assignments;
+}
 
