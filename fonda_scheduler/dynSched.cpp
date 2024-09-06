@@ -266,6 +266,7 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
 
         vertex_t *vertexToAssign = item.first;
         if( vertexToAssign->name== "GRAPH_TARGET") continue;
+        if(vertexToAssign->visited) continue;
         printInlineDebug("assign vertex "+vertexToAssign->name);
 
         double minFinishTime= numeric_limits<double>::max();

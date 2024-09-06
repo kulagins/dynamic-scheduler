@@ -19,12 +19,12 @@ std::string trimQuotes(const std::string& str) {
     size_t end = str.length() - 1;
 
     // Check for leading quote
-    if (str[start] == '"') {
+    if (str[start] == '"'||str[start] == '\\') {
         start++;
     }
 
     // Check for trailing quote
-    if (str[end] == '"') {
+    if (str[end] == '"'|| str[end]=='\\') {
         end--;
     }
 
@@ -40,11 +40,12 @@ string answerWithJson(vector<Assignment *> assignments, string workflowName){
 
     //"schedule": {
 
-    nlohmann::json scheduleJson;
+    nlohmann::json scheduleJson= nlohmann::json::array();
 
     // Serialize each Assignment object and add to the schedule object with task name as key
     for (const auto& assignment : assignments) {
-        scheduleJson[assignment->task->name] = assignment->toJson();
+        if(!assignment->task->visited)
+            scheduleJson. push_back (assignment->toJson());
     }
 
     // Add the schedule to the main JSON object

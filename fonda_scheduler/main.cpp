@@ -35,52 +35,102 @@ vector<Assignment *> currentAssignment;
 
 void update(const Rest::Request& req, Http::ResponseWriter resp)
 {
-   // const Rest::TypedParam &param = req.param("text");
-    //Http::Uri::Query &query = req.query();
-
     const string &basicString = req.body();
     json bodyjson;
     bodyjson = json::parse(basicString);
 
-    const string &bodyString = to_string(bodyjson);
-
     double timestamp = 5000; //TODO extract from the query
 
-    //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
+    Cluster *updatedCluster = new Cluster(currentCluster);
 
-    currentAssignment.resize(0);
-    for (auto &processor: currentCluster->getProcessors()){
+    for (auto &processor: updatedCluster->getProcessors()){
         processor->assignSubgraph(NULL);
         processor->isBusy= false;
         processor->readyTime=timestamp;
+        processor->availableMemory = processor->getMemorySize();
+        processor->availableBuffer = processor-> communicationBuffer;
+        processor->pendingInBuffer.clear();
     }
 
 
     if(currentWorkflow!=NULL){
-        for (auto element: bodyjson["running_tasks"]) {
-            string elem_string = trimQuotes(to_string(element));
-           //TODO deal with running tasks!
-           // vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
-           // double futureReadyTime = timestamp +
-           // doRealAssignmentWithMemoryAdjustments(currentCluster, minFinishTime, bestp, vertexToAssign, procToChange);
-           // Assignment * assignment = new Assignment(vertexToAssign, bestp, startTimeToMinFinish, minFinishTime);
-           //  assignments.emplace_back(assignment);
-          }
+        if (bodyjson.contains("running_tasks")) {
+            const auto& runningTasks = bodyjson["running_tasks"];
+            for (auto it = runningTasks.begin(); it != runningTasks.end(); ++it) {
+                const std::string& taskName = it.key();
+                const auto& taskDetails = it.value();
+
+                auto startTime = taskDetails["start_time"];
+                vertex_t *vertex = findVertexByName(currentWorkflow, taskName);
+
+                const vector<Assignment *>::iterator &it_assignm = std::find_if(currentAssignment.begin(),
+                                                                        currentAssignment.end(),
+                                                                        [](Assignment *a) { return true; });
+                if(it_assignm!=currentAssignment.end()){
+                    (*it_assignm)->processor->readyTime= (*it_assignm)->finishTime;
+
+                }
+                else cout<<"running task not found in assignments"<<endl;
+
+
+            }
+        } else {
+            std::cout << "No running tasks found." << std::endl;
+        }
 
         for (auto element: bodyjson["finished_tasks"]) {
             string elem_string = trimQuotes(to_string(element));
             vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
             if(vertex==NULL)
-                cout<<"Update: not found vertex to delete: "<<elem_string<<endl;
+                printDebug("Update: not found vertex to set as finished: "+elem_string+"\n");
             else
-                remove_vertex(currentWorkflow,vertex);
-
-
+                //remove_vertex(currentWorkflow,vertex);
+                vertex->visited=true;
         }
 
+        vertex_t *vertex = currentWorkflow->first_vertex;
+        while(vertex!= nullptr){
+            if(!vertex->visited)
+            for (int j = 0; j < vertex->in_degree; j++) {
+                edge *incomingEdge = vertex->in_edges[j];
+                vertex_t *predecessor = incomingEdge->tail;
+               if(predecessor->visited){
+                   Processor *processorInUpdated = updatedCluster->getProcessorById(predecessor->assignedProcessor->id);
+                   auto foundInPendingMems = find_if(predecessor->assignedProcessor->pendingMemories.begin(), predecessor->assignedProcessor->pendingMemories.end(),
+                                               [incomingEdge](edge_t *edge) {
+                                                   return edge->tail->name == incomingEdge->tail->name &&
+                                                          edge->head->name == incomingEdge->head->name;
+                                               });
+                   if(foundInPendingMems==predecessor->assignedProcessor->pendingMemories.end()){
+                       auto foundInPendingBufs = find_if(predecessor->assignedProcessor->pendingInBuffer.begin(),
+                                                         predecessor->assignedProcessor->pendingInBuffer.end(),
+                                                         [incomingEdge](edge_t *edge) {
+                                                             return edge->tail->name == incomingEdge->tail->name &&
+                                                                    edge->head->name == incomingEdge->head->name;
+                                                         });
+                       if(foundInPendingMems==predecessor->assignedProcessor->pendingMemories.end()){
+                           processorInUpdated->pendingInBuffer.insert(incomingEdge);
+                           processorInUpdated->availableBuffer-= incomingEdge->weight;
+                       }
+                       else{throw new runtime_error("edge "+incomingEdge->tail->name+" -> "+incomingEdge->head->name+
+                       " found neither in pending mems, nor in bufs of processor "+ to_string(predecessor->assignedProcessor->id));}
+                   }
+                   else {
+                       processorInUpdated->pendingMemories.insert(incomingEdge);
+                       processorInUpdated->availableMemory-= incomingEdge->weight;
+                   }
+               }
+            }
+            vertex = vertex->next;
+        }
+
+
+
+        currentAssignment.resize(0);
         vector<Assignment*> assignments;
         double avgPeakMem=0;
         double d = heuristic(currentWorkflow, currentCluster, 1, 1, assignments, avgPeakMem);
+        cout<<"makespan is "<<d<<endl;
         const string  answerJson =
                 answerWithJson(assignments, currentName);
 

@@ -28,32 +28,39 @@ namespace Fonda {
     }
 
     void fillGraphWeightsFromExternalSource(graph_t *graphMemTopology, nlohmann::json query) {
-        for (const auto& [task_name, task_data] : query["workflow"]["tasks"].items()) {
-            //std::cout << "Task name: " << task_name << std::endl;
+        for (auto task : query["workflow"]["tasks"]) {
+            string task_name = trimQuotes(trimQuotes(trimQuotes( to_string(task["name"]))));
+            double  task_w = stod(to_string(task["work"]));
+            double task_m =stod(to_string( task["memory"]));
+           // std::cout << "Task name: " << task_name <<  " weight "<<to_string(task_w)<< std::endl;
             vertex_t *vertexToSet = findVertexByName(graphMemTopology, task_name);
-
-            double sumW=0;
-            int cntr=0;
-            for (const auto &time_value: task_data["time_predicted"].items()){
-                sumW+=time_value.value().get<double>();
-                cntr++;
-
+            if(vertexToSet==NULL) {
+                cout << "NOT FOUND VERTEX BY NAME " << task_name << endl;
+                continue;
             }
-            double timeToSet =sumW / cntr ;
-            vertexToSet->time = timeToSet;
+            vertexToSet->visited=false;
+           // double sumW=0;
+            //int cntr=0;
+            //for (const auto &time_value: task_data["time_predicted"].items()){
+            //    sumW+=time_value.value().get<double>();
+           //     cntr++;
 
-             sumW=0;
-             cntr=0;
-            for (const auto &time_value: task_data["memory_predicted"].items()){
-                sumW+=time_value.value().get<double>();
-                cntr++;
+           // }
+           // double timeToSet =sumW / cntr ;
+            vertexToSet->time = task_w;
 
-            }
-            auto memToSet = sumW/cntr ;
-            vertexToSet->memoryRequirement = memToSet;
+          //   sumW=0;
+           //  cntr=0;
+          //  for (const auto &time_value: task_data["memory_predicted"].items()){
+          //      sumW+=time_value.value().get<double>();
+           //     cntr++;
+
+          //  }
+            //auto memToSet = sumW/cntr ;
+            vertexToSet->memoryRequirement = task_m;
 
         }
-        retrieveEdgeWeights(graphMemTopology, query);
+      //  retrieveEdgeWeights(graphMemTopology, query);
     }
 
    void

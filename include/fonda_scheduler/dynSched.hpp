@@ -30,7 +30,7 @@ public:
 
     nlohmann::json toJson() const {
         return nlohmann::json{
-            //{"taskName", task->name},
+            {"task", task->name},
             {"start", startTime}, {"machine", processor->id}};
     }
 };
