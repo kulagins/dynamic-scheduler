@@ -29,8 +29,11 @@ public:
     }
 
     nlohmann::json toJson() const {
+        string tn = task->name;
+        std::transform(tn.begin(), tn.end(), tn.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
         return nlohmann::json{
-            {"task", task->name},
+            {"task", tn},
             {"start", startTime}, {"machine", processor->id}};
     }
 };
