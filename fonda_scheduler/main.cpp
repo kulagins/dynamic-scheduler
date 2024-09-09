@@ -54,28 +54,35 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
 
 
     if(currentWorkflow!=NULL){
-        if (bodyjson.contains("running_tasks")) {
+        if (bodyjson.contains("running_tasks") &&  bodyjson["running_tasks"].is_array()) {
             const auto& runningTasks = bodyjson["running_tasks"];
-            for (auto it = runningTasks.begin(); it != runningTasks.end(); ++it) {
-                const std::string& taskName = it.key();
-                const auto& taskDetails = it.value();
+            for (const auto& item : runningTasks) {
+                // Check if the required fields (name, start, machine) exist in each object
+                if (item.contains("name") && item.contains("start") && item.contains("machine")) {
+                    std::string name = item["name"];
+                    int start = item["start"];
+                    int machine = item["machine"];
 
-                auto startTime = taskDetails["start_time"];
-                vertex_t *vertex = findVertexByName(currentWorkflow, taskName);
+                    // Print the values of the fields to the console
+                   // std::cout << "Name: " << name << ", Start: " << start << ", Machine: " << machine << std::endl;
 
-                const vector<Assignment *>::iterator &it_assignm = std::find_if(currentAssignment.begin(),
-                                                                        currentAssignment.end(),
-                                                                        [](Assignment *a) { return true; });
-                if(it_assignm!=currentAssignment.end()){
-                    (*it_assignm)->processor->readyTime= (*it_assignm)->finishTime;
+                    const vector<Assignment *>::iterator &it_assignm = std::find_if(currentAssignment.begin(),
+                                                                                    currentAssignment.end(),
+                                                                                    [name](Assignment *a) { return a->task->name==name; });
+                    if(it_assignm!=currentAssignment.end()){
+                        (*it_assignm)->processor->readyTime= (*it_assignm)->finishTime;
 
+                    }
+                    else cout<<"running task not found in assignments "<<name<<endl;
+
+
+                } else {
+                    std::cerr << "One or more fields missing in a running task object." << std::endl;
                 }
-                else cout<<"running task not found in assignments"<<endl;
-
-
             }
+
         } else {
-            std::cout << "No running tasks found." << std::endl;
+            std::cout << "No running tasks found or wrong schema." << std::endl;
         }
 
         for (auto element: bodyjson["finished_tasks"]) {
