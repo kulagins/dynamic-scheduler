@@ -42,7 +42,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     double timestamp = 5000; //TODO extract from the query
 
     Cluster *updatedCluster = new Cluster(currentCluster);
-    vector<Assignment*> assignments;
+    vector<Assignment*> assignments, tempAssignments;
 
     for (auto &processor: updatedCluster->getProcessors()){
         processor->assignSubgraph(NULL);
@@ -79,7 +79,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
                         (*it_assignm)->processor->readyTime= (*it_assignm)->finishTime;
                         (*it_assignm)->processor->availableMemory= (*it_assignm)->processor->getMemorySize() -   (*it_assignm)->task->memoryRequirement;
                         //assert( (*it_assignm)->startTime==start);
-                        assignments.emplace_back(new Assignment(ver, (*it_assignm)->processor,start,start + ((*it_assignm)->finishTime)- (*it_assignm)->startTime));
+                        tempAssignments.emplace_back(new Assignment(ver, (*it_assignm)->processor,start,start + ((*it_assignm)->finishTime)- (*it_assignm)->startTime));
                     }
                     else {
                         cout<<"running task not found in assignments "<<name<<endl;
@@ -169,6 +169,8 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
         //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
 
         currentAssignment.resize(0);
+        // Append all elements from vec1 into vec2
+        assignments.insert(assignments.end(), tempAssignments.begin(), tempAssignments.end());
         currentAssignment = assignments;
         resp.send(Http::Code::Ok, answerJson);
 
