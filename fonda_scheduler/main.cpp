@@ -31,6 +31,7 @@ graph_t *currentWorkflow=NULL;
 string currentName;
 Cluster * currentCluster;
 vector<Assignment *> currentAssignment;
+double lastTimestamp=0;
 
 
 void update(const Rest::Request& req, Http::ResponseWriter resp)
@@ -39,7 +40,13 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     json bodyjson;
     bodyjson = json::parse(basicString);
     cout<<"Scheduler received an update request: "<<basicString<<endl;
-    double timestamp = 5000; //TODO extract from the query
+    double timestamp = bodyjson["time"];
+    cout<<"timestamp "<<timestamp <<endl;
+    if(timestamp==lastTimestamp)
+    {
+        cout<<"time doesnt move";
+    }
+    else lastTimestamp= timestamp;
 
     Cluster *updatedCluster = new Cluster(currentCluster);
     vector<Assignment*> assignments, tempAssignments;
@@ -76,7 +83,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
                                                                                                        [](unsigned char c){ return std::tolower(c); });
                         return tn==name; });
                     if(it_assignm!=currentAssignment.end()){
-                        (*it_assignm)->processor->readyTime= (*it_assignm)->finishTime;
+                        (*it_assignm)->processor->readyTime= timestamp+(*it_assignm)->task->time/(*it_assignm)->processor->getProcessorSpeed();//(timestamp>(*it_assignm)->finishTime)? (timestamp+(*it_assignm)->task->time/(*it_assignm)->processor->getProcessorSpeed()): (*it_assignm)->finishTime;
                         (*it_assignm)->processor->availableMemory= (*it_assignm)->processor->getMemorySize() -   (*it_assignm)->task->memoryRequirement;
                         //assert( (*it_assignm)->startTime==start);
                         tempAssignments.emplace_back(new Assignment(ver, (*it_assignm)->processor,start,start + ((*it_assignm)->finishTime)- (*it_assignm)->startTime));
@@ -87,8 +94,10 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
                         cout<<endl;
                         if(ver!=NULL) {
                             Processor *procOfTas = currentCluster->getProcessorById(machine);
-                            procOfTas->readyTime = start +
-                                                   ver->time / procOfTas->getProcessorSpeed();
+                            procOfTas->readyTime = //timestamp>( start +
+                                                //   ver->time / procOfTas->getProcessorSpeed())? (timestamp+ start +
+                                                       //                                                    ver->time / procOfTas->getProcessorSpeed()) :(start +
+                                                          //                                                ver->time / procOfTas->getProcessorSpeed());
                             procOfTas->availableMemory = procOfTas->getMemorySize() - ver->memoryRequirement;
                         }
                         else{
