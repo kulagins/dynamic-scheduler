@@ -42,6 +42,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     double timestamp = 5000; //TODO extract from the query
 
     Cluster *updatedCluster = new Cluster(currentCluster);
+    vector<Assignment*> assignments;
 
     for (auto &processor: updatedCluster->getProcessors()){
         processor->assignSubgraph(NULL);
@@ -65,15 +66,36 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
 
                     // Print the values of the fields to the console
                    // std::cout << "Name: " << name << ", Start: " << start << ", Machine: " << machine << std::endl;
-
+                    vertex_t *ver = findVertexByName(currentWorkflow, name);
+                    ver->visited = true;
                     const vector<Assignment *>::iterator &it_assignm = std::find_if(currentAssignment.begin(),
                                                                                     currentAssignment.end(),
-                                                                                    [name](Assignment *a) { return a->task->name==name; });
+                                                                                    [name](Assignment *a) {
+                                                                                        string tn = a->task->name;
+                                                                                        std::transform(tn.begin(), tn.end(), tn.begin(),
+                                                                                                       [](unsigned char c){ return std::tolower(c); });
+                        return tn==name; });
                     if(it_assignm!=currentAssignment.end()){
                         (*it_assignm)->processor->readyTime= (*it_assignm)->finishTime;
-
+                        (*it_assignm)->processor->availableMemory= (*it_assignm)->processor->getMemorySize() -   (*it_assignm)->task->memoryRequirement;
+                        //assert( (*it_assignm)->startTime==start);
+                        assignments.emplace_back(new Assignment(ver, (*it_assignm)->processor,start,start + ((*it_assignm)->finishTime)- (*it_assignm)->startTime));
                     }
-                    else cout<<"running task not found in assignments "<<name<<endl;
+                    else {
+                        cout<<"running task not found in assignments "<<name<<endl;
+                        std::for_each(currentAssignment.begin(), currentAssignment.end(),[](Assignment * a){cout<<a->task->name<<" on "<<a->processor->id<<", ";});
+                        cout<<endl;
+                        if(ver!=NULL) {
+                            Processor *procOfTas = currentCluster->getProcessorById(machine);
+                            procOfTas->readyTime = start +
+                                                   ver->time / procOfTas->getProcessorSpeed();
+                            procOfTas->availableMemory = procOfTas->getMemorySize() - ver->memoryRequirement;
+                        }
+                        else{
+                            cout<<"task also not found in the workflow"<<endl;
+                        }
+                    }
+
 
 
                 } else {
@@ -134,12 +156,13 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
 
 
         currentAssignment.resize(0);
-        vector<Assignment*> assignments;
+
         double avgPeakMem=0;
         double d = heuristic(currentWorkflow, currentCluster, 1, 1, assignments, avgPeakMem);
         cout<<"updated makespan is "<<d<<endl;
         const string  answerJson =
                 answerWithJson(assignments, currentName);
+        cout<<"answered the update request with "<<answerJson<<endl;
 
         Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
         query.as_str();
