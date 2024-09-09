@@ -38,7 +38,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     const string &basicString = req.body();
     json bodyjson;
     bodyjson = json::parse(basicString);
-
+    cout<<"Scheduler received an update request: "<<basicString<<endl;
     double timestamp = 5000; //TODO extract from the query
 
     Cluster *updatedCluster = new Cluster(currentCluster);
@@ -130,7 +130,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
         vector<Assignment*> assignments;
         double avgPeakMem=0;
         double d = heuristic(currentWorkflow, currentCluster, 1, 1, assignments, avgPeakMem);
-        cout<<"makespan is "<<d<<endl;
+        cout<<"updated makespan is "<<d<<endl;
         const string  answerJson =
                 answerWithJson(assignments, currentName);
 
@@ -154,6 +154,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     const string &basicString = req.body();
     json bodyjson;
     bodyjson = json::parse(basicString);
+    cout<<"Scheduler received a new workflow schedule request: "<<basicString<<endl;
 
     string workflowName = bodyjson["workflow"]["name"];
     currentName= workflowName;
