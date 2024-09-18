@@ -32,6 +32,7 @@ string currentName;
 Cluster * currentCluster;
 vector<Assignment *> currentAssignment;
 double lastTimestamp=0;
+int currentAlgoNum=0;
 
 
 void update(const Rest::Request& req, Http::ResponseWriter resp)
@@ -39,14 +40,36 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     const string &basicString = req.body();
     json bodyjson;
     bodyjson = json::parse(basicString);
-    cout<<"Scheduler received an update request: "<<basicString<<endl;
+    cout<<"Update ";//"Scheduler received an update request: ";
+    if(Debug){
+        //cout<<basicString<<endl;
+       // cout <<endl;
+    }
+    else{
+     //   cout <<endl;
+    }
     double timestamp = bodyjson["time"];
-    cout<<"timestamp "<<timestamp <<endl;
+    cout<<"timestamp "<<timestamp<<", reason "<<bodyjson["reason"] <<" ";
     if(timestamp==lastTimestamp)
     {
         cout<<"time doesnt move";
     }
     else lastTimestamp= timestamp;
+
+    string wholeReason = bodyjson["reason"];
+    size_t pos = wholeReason.find("occupied");
+    std::string partBeforeOccupied = wholeReason.substr(0, pos);
+    std::string partAfterOccupied = wholeReason.substr(pos+11);
+
+    pos = partBeforeOccupied.find(": ");
+    pos +=2;
+    std::string nameOfTaskWithProblem = partBeforeOccupied.substr(pos);
+    nameOfTaskWithProblem = trimQuotes(nameOfTaskWithProblem);
+
+    pos = partAfterOccupied.find("on machine");
+    string nameOfProblemCause = partAfterOccupied.substr(0, pos);
+    nameOfProblemCause= trimQuotes(nameOfProblemCause);
+
 
     Cluster *updatedCluster = new Cluster(currentCluster);
     vector<Assignment*> assignments, tempAssignments;
@@ -64,6 +87,7 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
     if(currentWorkflow!=NULL){
         if (bodyjson.contains("running_tasks") &&  bodyjson["running_tasks"].is_array()) {
             const auto& runningTasks = bodyjson["running_tasks"];
+            cout<<"num running tasks: "<<runningTasks.size()<<" ";
             for (const auto& item : runningTasks) {
                 // Check if the required fields (name, start, machine) exist in each object
                 if (item.contains("name") && item.contains("start") && item.contains("machine")) {
@@ -73,6 +97,10 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
 
                     // Print the values of the fields to the console
                    // std::cout << "Name: " << name << ", Start: " << start << ", Machine: " << machine << std::endl;
+                    name = trimQuotes(name);
+                    if(name==nameOfProblemCause){
+                        cout<<"found problem cause"<<endl;
+                    }
                     vertex_t *ver = findVertexByName(currentWorkflow, name);
                     ver->visited = true;
                     const vector<Assignment *>::iterator &it_assignm = std::find_if(currentAssignment.begin(),
@@ -116,8 +144,10 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
             std::cout << "No running tasks found or wrong schema." << std::endl;
         }
 
+        cout<<"num finished tasks: "<<bodyjson["finished_tasks"].size()<<" ";
         for (auto element: bodyjson["finished_tasks"]) {
-            string elem_string = trimQuotes(to_string(element));
+            const string &elementWithQuotes = to_string(element);
+            string elem_string = trimQuotes(elementWithQuotes);
             vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
             if(vertex==NULL)
                 printDebug("Update: not found vertex to set as finished: "+elem_string+"\n");
@@ -167,21 +197,23 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
         currentAssignment.resize(0);
 
         double avgPeakMem=0;
-        double d = heuristic(currentWorkflow, currentCluster, 1, 1, assignments, avgPeakMem);
-        cout<<"updated makespan is "<<d<<endl;
+        assignments = runAlgorithm(currentAlgoNum,currentWorkflow,currentCluster,currentName);
         const string  answerJson =
                 answerWithJson(assignments, currentName);
-        cout<<"answered the update request with "<<answerJson<<endl;
+      //  cout<<"answered the update request with "<<endl;//<<answerJson<<endl;
 
         Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
         query.as_str();
         //std::string text = req.hasParam(":wf_name") ? req.param(":wf_name").as<std::string>() : "No parameter supplied.";
 
-        currentAssignment.resize(0);
-        // Append all elements from vec1 into vec2
         assignments.insert(assignments.end(), tempAssignments.begin(), tempAssignments.end());
         currentAssignment = assignments;
-        resp.send(Http::Code::Ok, answerJson);
+        if(assignments.size()== tempAssignments.size()){
+            resp.send(Http::Code::Precondition_Failed, answerJson);
+        } else{
+            resp.send(Http::Code::Ok, answerJson);
+        }
+
 
     }else
         resp.send(Http::Code::Not_Acceptable, "No workflow has been scheduled yet.");
@@ -189,20 +221,29 @@ void update(const Rest::Request& req, Http::ResponseWriter resp)
 
 void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
 {
+
+    cout << fixed;
     graph_t *graphMemTopology;
-    string filename = "../input/";
+
 
     const string &basicString = req.body();
     json bodyjson;
     bodyjson = json::parse(basicString);
-    cout<<"Scheduler received a new workflow schedule request: "<<basicString<<endl;
+    cout<<"Scheduler received a new workflow schedule request: "<<endl;//basicString<<endl;
 
     string workflowName = bodyjson["workflow"]["name"];
     currentName= workflowName;
     int algoNumber = bodyjson["algorithm"].get<int>();
 
+    string filename = "../input/";
+    string suffix="00";
+    if(workflowName.substr(workflowName.size() - suffix.size()) == suffix)
+    {
+        filename += "generated/";//+filename;
+    }
     filename+= workflowName;
-    filename+="_sparse.dot";
+
+    filename+=workflowName.substr(workflowName.size() - suffix.size()) == suffix?  ".dot": "_sparse.dot";
     graphMemTopology = read_dot_graph(filename.c_str(), NULL, NULL, NULL);
     checkForZeroMemories(graphMemTopology);
 
@@ -210,6 +251,29 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
+    double maxMemReq=0;
+    vertex_t *vertex = graphMemTopology->first_vertex;
+    while(vertex!= nullptr){
+        if(vertex->memoryRequirement>maxMemReq){
+            maxMemReq=vertex->memoryRequirement;
+        }
+
+        double sumIn=0, sumOut=0;
+
+        for(int i=0; i<vertex->in_degree; i++) {
+           sumIn+= vertex->in_edges[i]->weight;
+        }
+        for(int i=0; i<vertex->out_degree; i++) {
+            sumOut+= vertex->out_edges[i]->weight;
+        }
+        if(sumIn>maxMemReq){cout<<"InEdges exceed MemReq on "<<vertex->name<<endl;}
+        if(sumOut>maxMemReq){cout<<"OutEdges exceed MemReq on "<<vertex->name<<endl;}
+
+        if(sumIn>maxMemReq){maxMemReq= sumIn;}
+        if(sumOut>maxMemReq){maxMemReq= sumOut;}
+        vertex = vertex->next;
+    }
+  //  cout<<"MAX MEM REQ "<<maxMemReq<<endl;
     const vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName);
     const string  answerJson =
             answerWithJson(assignments, workflowName);
@@ -224,6 +288,7 @@ void new_schedule(const Rest::Request& req, Http::ResponseWriter resp)
     currentCluster = cluster;
     currentAssignment.resize(0);
     currentAssignment = assignments;
+    currentAlgoNum=algoNumber;
     resp.send(Http::Code::Ok, answerJson);
 }
 
@@ -235,7 +300,8 @@ int main(int argc, char *argv[]) {
     Port port(9900);    // port to listen on
     Address addr(Ipv4::any(), port);
     std::shared_ptr<Http::Endpoint> endpoint = std::make_shared<Http::Endpoint>(addr);
-    auto opts = Http::Endpoint::options().maxRequestSize(262144).threads(1);
+    auto opts = Http::Endpoint::options().maxRequestSize(9291456).threads(1);
+
     endpoint->init(opts);
 
     /* routes! */

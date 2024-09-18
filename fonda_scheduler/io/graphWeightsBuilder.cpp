@@ -29,7 +29,7 @@ namespace Fonda {
 
     void fillGraphWeightsFromExternalSource(graph_t *graphMemTopology, nlohmann::json query) {
         for (auto task : query["workflow"]["tasks"]) {
-            string task_name = trimQuotes(trimQuotes(trimQuotes( to_string(task["name"]))));
+            string task_name = trimQuotes( to_string(task["name"]));
             double  task_w = stod(to_string(task["work"]));
             double task_m =stod(to_string( task["memory"]));
            // std::cout << "Task name: " << task_name <<  " weight "<<to_string(task_w)<< std::endl;
@@ -60,7 +60,7 @@ namespace Fonda {
             vertexToSet->memoryRequirement = task_m;
 
         }
-      //  retrieveEdgeWeights(graphMemTopology, query);
+        retrieveEdgeWeights(graphMemTopology, query);
     }
 
    void
@@ -69,7 +69,8 @@ namespace Fonda {
         map<vertex_t*, double> wchars, inputsizes;
        for (const auto& [task_name, task_data] : query["workflow"]["tasks"].items()) {
            //std::cout << "Task name: " << task_name << std::endl;
-           vertex_t *vertexToSet = findVertexByName(graphMemTopology, task_name);
+           string taskNameFromData = to_string(task_data["name"]);
+           vertex_t *vertexToSet = findVertexByName(graphMemTopology, trimQuotes(taskNameFromData));
 
            double sumW=0;
            int cntr=0;

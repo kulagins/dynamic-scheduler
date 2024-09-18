@@ -15,21 +15,25 @@ std::string trimQuotes(const std::string& str) {
         return str; // Return the empty string if input is empty
     }
 
-    size_t start = 0;
-    size_t end = str.length() - 1;
+    string result = str, prevResult = str;
+   do{
+        prevResult = result;
+        size_t start = 0;
+        size_t end = prevResult.length() - 1;
 
-    // Check for leading quote
-    if (str[start] == '"'||str[start] == '\\') {
-        start++;
-    }
+        // Check for leading quote
+        if (prevResult[start] == '"'||prevResult[start] == '\\'|| prevResult[start]==' ') {
+            start++;
+        }
 
-    // Check for trailing quote
-    if (str[end] == '"'|| str[end]=='\\') {
-        end--;
-    }
+        // Check for trailing quote
+        if (prevResult[end] == '"'|| prevResult[end]=='\\'|| prevResult[end]==' ') {
+            end--;
+        }
 
-    // Return the trimmed string
-    return str.substr(start, end - start + 1);
+        result = prevResult.substr(start, end - start + 1);
+    } while(result!=prevResult);
+    return result;
 }
 
 string answerWithJson(vector<Assignment *> assignments, string workflowName){

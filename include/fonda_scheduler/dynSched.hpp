@@ -34,7 +34,7 @@ public:
                        [](unsigned char c){ return std::tolower(c); });
         return nlohmann::json{
             {"task", tn},
-            {"start", startTime}, {"machine", processor->id}};
+            {"start", startTime}, {"machine", processor->id}, {"finish", finishTime}};
     }
 };
 
