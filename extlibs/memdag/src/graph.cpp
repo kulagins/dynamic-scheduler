@@ -659,7 +659,11 @@ vertex_t * findVertexByName(graph_t* graph, std::string toFind){
         std::transform(vname.begin(), vname.end(), vname.begin(),
                        [](unsigned char c){ return std::tolower(c); });
 
-        if (vname==toFind) return vertex;
+        std::string vnameToFind = toFind;
+        std::transform(vnameToFind.begin(), vnameToFind.end(), vnameToFind.begin(),
+                       [](unsigned char c){ return std::tolower(c); });
+
+        if (vname==vnameToFind) return vertex;
         vertex = vertex->next;
     }
     return NULL;
