@@ -1,8 +1,69 @@
 #include "fonda_scheduler/dynSched.hpp"
 
+#include <iterator>
+
+std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> assignments, string name) {
+    std::vector<Assignment*>::iterator it = std::find_if(assignments.begin(),
+                                                                                                   assignments.end(),
+                                                                                                   [name](Assignment *a) {
+                                                                                                       string tn = a->task->name;
+                                                                                                       std::transform(
+                                                                                                               tn.begin(),
+                                                                                                               tn.end(),
+                                                                                                               tn.begin(),
+                                                                                                               [](unsigned char c) {
+                                                                                                                   return std::tolower(
+                                                                                                                           c);
+                                                                                                               });
+                                                                                                       return tn ==
+                                                                                                              name;
+                                                                                                   });
+    if (it != assignments.end()) {
+        return it;
+    } else {
+        cout << "no assignment found for " << name << endl;
+
+        std::for_each(assignments.begin(), assignments.end(),[](Assignment* a){cout<<a->task->name<<" on "<<a->processor->id<<", ";});
+        cout<<endl;
+        throw new runtime_error("");
+    }
+}
+
+double isDelayPossibleUntil(Assignment *assignmentToDelay, double newStartTime, vector<Assignment *> assignments,
+                            Cluster *cluster) {
+    vertex_t *vertexToDelay = assignmentToDelay->task;
+    double finishTimeOfDelay = assignmentToDelay->finishTime;
+    auto processorOfDelay = vertexToDelay->assignedProcessor;
+    double newFinishTime = newStartTime + vertexToDelay->time / processorOfDelay->getProcessorSpeed();
 
 
-graph_t *convertToNonMemRepresentation(graph_t *withMemories,map<int, int> &noMemToWithMem) {
+    for (int j = 0; j < vertexToDelay->out_degree; j++) {
+        assert(vertexToDelay->out_edges[j]->tail == vertexToDelay);
+        vertex_t *child = vertexToDelay->out_edges[j]->head;
+        double latestPredFinishTime = 0;
+        auto longestPredecessor = getLongestPredecessorWithBuffers(child, cluster, latestPredFinishTime);
+        if (longestPredecessor == vertexToDelay || latestPredFinishTime <= newFinishTime) {
+            return false;
+        }
+
+    }
+
+    std::vector<Assignment *> allAfterDelayedOne;
+    // Find all elements greater than 5
+    std::copy_if(assignments.begin(), assignments.end(), std::back_inserter(allAfterDelayedOne),
+                 [processorOfDelay, finishTimeOfDelay](Assignment *assignment) {
+                     return assignment->processor->id == processorOfDelay->id &&
+                            assignment->startTime > finishTimeOfDelay;
+                 });
+    sort(allAfterDelayedOne.begin(), allAfterDelayedOne.end(), [](Assignment *ass1, Assignment *ass2) { return ass1->startTime<ass2->startTime; });
+
+    if (!allAfterDelayedOne.empty() && (*allAfterDelayedOne.begin())->startTime <= newFinishTime) {
+        return false;
+    }
+    return true;
+}
+
+graph_t *convertToNonMemRepresentation(graph_t *withMemories, map<int, int> &noMemToWithMem) {
     enforce_single_source_and_target(withMemories);
     graph_t *noNodeMemories = new_graph();
 
@@ -26,6 +87,7 @@ graph_t *convertToNonMemRepresentation(graph_t *withMemories,map<int, int> &noMe
 
             if (outVtxOfCopiedInVtxOfEdge == NULL) {
                 print_graph_to_cout(noNodeMemories);
+                outVtxOfCopiedInVtxOfEdge = findVertexByName(noNodeMemories, expectedName);
                 cout << "expected: " << expectedName << endl;
                 throw std::invalid_argument(" no vertex found for expected name.");
 
@@ -191,21 +253,29 @@ std::vector < std::pair< vertex_t *, int> >  calculateMMBottomUpRank(graph_t * g
 }
 
 
-void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch) {
+void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch, bool evictBiggestFirst) {
 
     if (modifiedProc->pendingMemories.size() > 0)
         assert((*modifiedProc->pendingMemories.begin())->weight <= (*modifiedProc->pendingMemories.rbegin())->weight);
-    auto it = modifiedProc->pendingMemories.begin();
-
-    // Iterate over the vector
     printInlineDebug("kick out ");
-    int a=0;
-    while (it != modifiedProc->pendingMemories.end() && stillTooMuch < 0) {
-        stillTooMuch += (*it)->weight;
-        currentlyAvailableBuffer -= (*it)->weight;
-        a++;
-        it = modifiedProc->pendingMemories.erase(it);
+    if (!evictBiggestFirst) {
+        auto it = modifiedProc->pendingMemories.begin();
+        while (it != modifiedProc->pendingMemories.end() && stillTooMuch < 0) {
+            stillTooMuch += (*it)->weight;
+            currentlyAvailableBuffer -= (*it)->weight;
+            it = modifiedProc->pendingMemories.erase(it);
+        }
+    } else {
+        for (auto it = modifiedProc->pendingMemories.end();
+             it != modifiedProc->pendingMemories.begin() && stillTooMuch < 0;) {
+            it--;
+            stillTooMuch += (*it)->weight;
+            currentlyAvailableBuffer -= (*it)->weight;
+            it = modifiedProc->pendingMemories.erase(it);
+        }
     }
+
+
 }
 
 double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere3Part(const vertex_t *v, const Processor *pj) {
@@ -257,12 +327,50 @@ double getFinishTimeWithPredecessorsAndBuffers(vertex_t *v, const Processor *pj,
     return finishtime;
 }
 
-double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int evictionVariant,  vector<Assignment*> &assignments, double& avgPeakMem){
-    vector<pair<Processor*, double>> peakMems;
+vertex_t *
+getLongestPredecessorWithBuffers(vertex_t *child, const Cluster *cluster, double &latestPredecessorFinishTime) {
+    double maxRtFromPredecessors = 0;
+    double bandwidth = cluster->getBandwidth();
+    vertex_t *longestPredecessor;
+    latestPredecessorFinishTime = 0;
+    for (int j = 0; j < child->in_degree; j++) {
+        edge *incomingEdge = child->in_edges[j];
+        vertex_t *predecessor = incomingEdge->tail;
+        if (predecessor->assignedProcessor->id != child->assignedProcessor->id &&
+            predecessor->assignedProcessor != NULL) {
+            // Finish time from predecessor
+            double rtFromPredecessor = predecessor->makespan + incomingEdge->weight / bandwidth;
+            // communication buffer
+            double buffer = cluster->readyTimesBuffers.at(predecessor->assignedProcessor->id).at(predecessor->assignedProcessor->id) +
+                            +incomingEdge->weight / bandwidth;
+            rtFromPredecessor = max(rtFromPredecessor, buffer);
+            maxRtFromPredecessors = max(rtFromPredecessor, maxRtFromPredecessors);
+            if (maxRtFromPredecessors > latestPredecessorFinishTime) {
+                latestPredecessorFinishTime = maxRtFromPredecessors;
+                longestPredecessor = predecessor;
+            }
+        }
+    }
+
+
+    return longestPredecessor;
+}
+
+
+double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int evictionVariant,
+                 vector<Assignment *> &assignments, double &avgPeakMem) {
+    vector<pair<Processor *, double>> peakMems;
     vector<pair<vertex_t *, int>> ranks = calculateBottomLevels(graph, bottomLevelVariant);
-    sort(ranks.begin(), ranks.end(),[](pair<vertex_t *, int > a, pair<vertex_t *, int > b){ return  a.second> b.second;});
-    double maxFinishTime=0;
-    for (const pair<vertex_t *, int > item: ranks){
+    sort(ranks.begin(), ranks.end(),
+         [](pair<vertex_t *, int> a, pair<vertex_t *, int> b) { return a.second > b.second; });
+
+    bool evistBiggestFirst = false;
+    if (evictionVariant == 1) {
+        evistBiggestFirst = true;
+    }
+
+    double maxFinishTime = 0;
+    for (const pair<vertex_t *, int> item: ranks) {
 
         vertex_t *vertexToAssign = item.first;
         if( vertexToAssign->name== "GRAPH_TARGET") continue;
@@ -278,9 +386,10 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
         for (const auto &p: cluster->getProcessors()){
             double finishTime, startTime;
 
-            bool isValid= true;
-            double peakMem=0;
-            Processor *pinfake  = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, startTime, isValid, peakMem);
+            bool isValid = true;
+            double peakMem = 0;
+            Processor *pinfake = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, startTime,
+                                                                  isValid, peakMem, evistBiggestFirst);
 
             if(isValid && minFinishTime>finishTime){
                 minFinishTime = finishTime;
@@ -318,7 +427,8 @@ double heuristic(graph_t * graph, Cluster * cluster, int bottomLevelVariant, int
     return maxFinishTime;
 }
 
-void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp, vertex_t *vertexToAssign,
+void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp,
+                                           vertex_t *vertexToAssign,
                                            Processor *procToChange) {
     vertexToAssign->assignedProcessor= procToChange;
 
@@ -466,8 +576,10 @@ vector<pair<vertex_t *, int>> calculateBottomLevels(graph_t *graph, int bottomLe
 }
 
 
-Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double & peakMem) {
-    Processor * modifiedProc = NULL;
+Processor *
+tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, double &finishTime, double &startTime,
+                                 bool &isValid, double &peakMem, bool evictBiggestFirst) {
+    Processor *modifiedProc = NULL;
 
     //step 1
     for (int j = 0; j < v->in_degree; j++) {
@@ -497,9 +609,9 @@ Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster
         modifiedProc = new Processor(pj);
         double currentlyAvailableBuffer;
         double stillTooMuch;
-        stillTooMuch= Res;
-        currentlyAvailableBuffer= modifiedProc->availableBuffer;
-        evict(modifiedProc, currentlyAvailableBuffer, stillTooMuch);
+        stillTooMuch = Res;
+        currentlyAvailableBuffer = modifiedProc->availableBuffer;
+        evict(modifiedProc, currentlyAvailableBuffer, stillTooMuch, evictBiggestFirst);
 
         cout<<stillTooMuch<<endl;
 

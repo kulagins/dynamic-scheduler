@@ -59,14 +59,17 @@ double removeInputPendingEdgesFromEverywherePendingMemAndBuffer(const Cluster *c
 double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere(const vertex_t *v, const Processor *pj);
 double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere3Part(const vertex_t *v, const Processor *pj);
 
-void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch);
+void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch, bool evictBiggestFirst);
 
-Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double &peakMem);
+Processor * tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster* cluster, double &finishTime, double & startTime, bool &isValid, double &peakMem, bool evictBiigestFirst=false);
 void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp, vertex_t *vertexToAssign,
                                            Processor *procToChange);
 graph_t *convertToNonMemRepresentation(graph_t *withMemories, map<int, int> &noMemToWithMem);
 
 string answerWithJson(vector<Assignment *> assignments, string workflowName);
 vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName);
+vertex_t * getLongestPredecessorWithBuffers(vertex_t *child, const Cluster *cluster, double &latestPredecessorFinishTime);
+double isDelayPossibleUntil(Assignment* assignmentToDelay, double newStartTime, vector<Assignment*> assignments, Cluster* cluster);
+std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> assignments, string name);
 
 #endif //RESHI_TXT_DYNSCHED_HPP
