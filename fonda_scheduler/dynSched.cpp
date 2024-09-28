@@ -232,6 +232,7 @@ std::vector < std::pair< vertex_t *, double> >  calculateMMBottomUpRank(graph_t 
 
     map<int, int> noMemToWithMem;
     graph_t *graph = convertToNonMemRepresentation(graphWMems, noMemToWithMem);
+   // print_graph_to_cout(graph);
 
     SP_tree_t *sp_tree = NULL;
     graph_t *sp_graph = NULL;
@@ -253,6 +254,7 @@ std::vector < std::pair< vertex_t *, double> >  calculateMMBottomUpRank(graph_t 
 
         for(int i=0; i<sp_graph->number_of_vertices; i++){
             vertex_t *vInSp = schedule[i];
+            //cout<<vInSp->name<<endl;
             const map<int, int>::iterator &it = noMemToWithMem.find(vInSp->id);
             if (it != noMemToWithMem.end()) {
                 vertex_t *vertexWithMem = graphWMems->vertices_by_id[(*it).second];
