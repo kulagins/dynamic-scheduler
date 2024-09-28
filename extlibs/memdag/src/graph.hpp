@@ -195,6 +195,7 @@ int add_edges_to_cope_with_limited_memory(graph_t *graph, double memory_bound, e
 
 vertex_t * findVertexByName(graph_t* graph, std::string toFind);
 vertex_t * findVertexById(graph_t* graph, int idToFind);
+double peakMemoryRequirementOfVertex(const vertex_t * v);
 
 
 class Swap {

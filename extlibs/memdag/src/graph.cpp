@@ -677,3 +677,19 @@ vertex_t * findVertexById(graph_t* graph, int idToFind){
     }
     return  NULL;
 }
+
+double peakMemoryRequirementOfVertex(const vertex_t * v) {
+    double maxMemReq = v->memoryRequirement;
+
+    double sumIn = 0, sumOut = 0;
+
+    for (int i = 0; i < v->in_degree; i++) {
+        sumIn += v->in_edges[i]->weight;
+    }
+    for (int i = 0; i < v->out_degree; i++) {
+        sumOut += v->out_edges[i]->weight;
+    }
+    if (sumIn > maxMemReq) { maxMemReq = sumIn; }
+    if (sumOut > maxMemReq) { maxMemReq = sumOut; }
+    return maxMemReq;
+}
