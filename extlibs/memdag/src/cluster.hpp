@@ -272,7 +272,9 @@ public:
     void printProcessors() {
         for (vector<Processor *>::iterator iter = this->processors.begin(); iter < processors.end(); iter++) {
             cout << "Processor with memory " << (*iter)->getMemorySize() << ", speed " << (*iter)->getProcessorSpeed()
-                 << " and busy? " << (*iter)->isBusy << "assigned " << ((*iter)->isBusy?(*iter)->getAssignedTaskId(): -1) << endl;
+                 << " and busy? " << (*iter)->isBusy << "assigned " << ((*iter)->isBusy?(*iter)->getAssignedTaskId(): -1)
+                 << " ready time "<<(*iter)->readyTime<<" avail memory "<<(*iter)->availableMemory<<
+                 endl;
         }
     }
 

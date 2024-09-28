@@ -190,6 +190,8 @@ Cluster::Cluster(const Cluster * copy){
         }
     }
 
+    this->setHomogeneousBandwidth(copy->getBandwidth());
+
 
 }
 
