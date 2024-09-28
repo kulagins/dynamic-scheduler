@@ -15,7 +15,7 @@ std::string trimQuotes(const std::string& str) {
         return str; // Return the empty string if input is empty
     }
 
-    string result = str, prevResult = str;
+    string result = str, prevResult;
    do{
         prevResult = result;
         size_t start = 0;

@@ -9,11 +9,7 @@
 
 #include "../extlibs/memdag/src/graph.hpp"
 #include "../include/fonda_scheduler/dynSched.hpp"
-#include "../extlibs/memdag/src/cluster.hpp"
-#include "../include/fonda_scheduler/dynSched.hpp"
 #include "../include/fonda_scheduler/io/graphWeightsBuilder.hpp"
-#include "../include/fonda_scheduler/common.hpp"
-
 
 #include <chrono>
 #include <cstring>
@@ -23,35 +19,18 @@
 graph_t *currentWorkflow = NULL;
 string currentName;
 Cluster *currentCluster;
-Cluster * emptyCluster;
 vector<Assignment *> currentAssignment;
 double lastTimestamp = 0;
 int currentAlgoNum = 0;
 int updateCounter=0;
 int delayCnt=0;
 
-class space_separated : public std::numpunct<char> {
-protected:
-    // Override the method to define the grouping (3 digits per group)
-    virtual std::string do_grouping() const override {
-        return "\3";  // Groups of 3 digits
-    }
-
-    // Override to define the character used for grouping (space in this case)
-    virtual char do_thousands_sep() const override {
-        return ' ';  // Use space as the separator
-    }
-};
-
-
 void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
-    updateCounter=0;
-    delayCnt=0;
+    updateCounter=delayCnt=0;
     cout << fixed;
 
     graph_t *graphMemTopology;
-
 
     const string &basicString = req.body();
     json bodyjson;
@@ -76,7 +55,6 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
 
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
-    emptyCluster = Fonda::buildClusterFromJson(bodyjson);
     cluster->setHomogeneousBandwidth(10000);
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
@@ -87,7 +65,6 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
         vertex = vertex->next;
     }
     cout<<"MAX MEM REQ "<<maxMemReq<<endl;
-    //print_graph_to_cout(graphMemTopology);
     bool wasCorrect;
     double resultingMS;
     vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName, wasCorrect, resultingMS);
@@ -182,25 +159,27 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
             } else {
                 assignmOfProblemCauser->task->makespan= newStartTime;
                 assignmOfProblem->processor->readyTime= newStartTime;
-                completeRecomputationOfSchedule(resp, bodyjson, timestamp, nameOfProblemCause,taskWithProblem);
+                completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
             }
 
         }
         else if(errorName== "InsufficientMemoryException") {
             assert(nameOfProblemCause == taskWithProblem->name);
-            completeRecomputationOfSchedule(resp, bodyjson, timestamp, nameOfProblemCause, taskWithProblem);
+            completeRecomputationOfSchedule(resp, bodyjson, timestamp,  taskWithProblem);
         }
         else if(errorName== "TookMuchLess") {
             //cout<<" too short ";
             vertex_t *vertex = findVertexByName(currentWorkflow, nameOfTaskWithProblem);
-            if (vertex == NULL)
+            if (vertex == nullptr)
                 printDebug("Update: not found vertex that finished early: " + nameOfTaskWithProblem);
-            else
+            else {
                 //remove_vertex(currentWorkflow,vertex);
-                vertex->visited = true; vertex->makespan = newStartTime;
-                vertex->assignedProcessor->readyTime=newStartTime;
+                vertex->visited = true;
+                vertex->makespan = newStartTime;
+                vertex->assignedProcessor->readyTime = newStartTime;
+            }
             assert(newStartTime==timestamp);
-            completeRecomputationOfSchedule(resp, bodyjson, timestamp, "", vertex);
+            completeRecomputationOfSchedule(resp, bodyjson, timestamp, vertex);
         }
 
     } else
@@ -210,13 +189,9 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
 
 
 
-int main(int argc, char *argv[]) {
+int main() {
     using namespace Rest;
     Debug = false;//true;
-
-    //to have pretty prints
-    std::locale custom_locale(std::locale(), new space_separated);
-  //  std::cout.imbue(custom_locale);
     std::cout << std::fixed << std::setprecision(3);
 
     Router router;      // POST/GET/etc. route handler
@@ -238,7 +213,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bodyjson, double timestamp,
-                                     const string &nameOfProblemCause, vertex_t * vertexThatHasAProblem) {
+                                      vertex_t * vertexThatHasAProblem) {
 
     vector<Assignment *> assignments, tempAssignments;
 
@@ -250,7 +225,6 @@ void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bod
 
     currentAssignment.resize(0);
 
-    double avgPeakMem = 0;
     bool wasCorrect; double resMS;
     assignments = runAlgorithm(currentAlgoNum, currentWorkflow, updatedCluster, currentName, wasCorrect, resMS);
     const string answerJson =
@@ -275,7 +249,7 @@ void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bod
     currentCluster=updatedCluster;
     //cout<<updateCounter<<" "<<delayCnt<<endl;
     if (!wasCorrect ||assignments.size() == tempAssignments.size()) {
-        resp.send(Http::Code::Precondition_Failed, answerJson);
+       resp.send(Http::Code::Precondition_Failed, answerJson);
     } else {
         resp.send(Http::Code::Ok, answerJson);
     }
@@ -302,11 +276,8 @@ void delayOneTask(Http::ResponseWriter &resp, const json &bodyjson, string &name
             // Check if the required fields (name, start, machine) exist in each object
             if (item.contains("name") && item.contains("start") && item.contains("machine")) {
                 string name = item["name"];
-                int start = item["start"];
-                int machine = item["machine"];
-                //std::cout << "Name: " << name << ", Start: " << start << ", Machine: " << machine << std::endl;
                 name = trimQuotes(name);
-                vector<Assignment *>::iterator position = std::find_if(assignments.begin(),
+                auto position = std::find_if(assignments.begin(),
                                                                        assignments.end(),
                                                                        [name](Assignment *a) {
                                                                            string tn = a->task->name;
@@ -394,8 +365,6 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
                     Processor *updatedProc = updatedCluster->getProcessorById((*it_assignm)->processor->id);
                     double realFinishTimeComputed = start + realWork /
                                                             updatedProc->getProcessorSpeed();
-
-                    double realRunningTaskFinishTime = max(realFinishTimeComputed, ver->makespan);
                     updatedProc->readyTime = realFinishTimeComputed;//(timestamp>(*it_assignm)->finishTime)? (timestamp+(*it_assignm)->task->time/(*it_assignm)->processor->getProcessorSpeed()): (*it_assignm)->finishTime;
                     ver->makespan = realFinishTimeComputed;
                     assert((*it_assignm)->task->name==ver->name);
@@ -446,33 +415,6 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
     } else {
         cout << "No running tasks found or wrong schema." << endl;
     }
-
-  /*  for (auto element: bodyjson["finished_tasks"]) {
-        const string &elementWithQuotes = to_string(element);
-        string elem_string = trimQuotes(elementWithQuotes);
-        vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
-        if (vertex == NULL)
-            printDebug("Update: not found vertex to set as finished: " + elem_string + "\n");
-        else{
-            Processor *processorInUpdated = updatedCluster->getProcessorById(
-                    vertex->assignedProcessor->id);
-            for (int i = 0; i < vertex->out_degree; i++) {
-               vertex_t* successor =  vertex->out_edges[i]->head;
-               if(!successor->visited){
-                  // if(successor->assignedProcessor->id==)
-                   processorInUpdated->pendingMemories.insert(vertex->out_edges[i]);
-                   if(processorInUpdated->availableMemory<vertex->out_edges[i]->weight){
-                       cout<<"PROBLEM NOT ENOUGH MEM FOR EDGES: on proc "<<processorInUpdated->id<<" at insertion of edge from"<<
-                       vertex->name<<" to "<<successor->name<<endl;
-                   }
-                   processorInUpdated->availableMemory-=vertex->out_edges[i]->weight;
-                   assert(processorInUpdated->availableMemory>=0);
-
-               }
-            }
-        }
-
-    } */
 
     vertex_t *vertex = currentWorkflow->first_vertex;
     while (vertex != nullptr) {

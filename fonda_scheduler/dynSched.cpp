@@ -3,7 +3,7 @@
 #include <iterator>
 
 std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> assignments, string name) {
-    std::vector<Assignment*>::iterator it = std::find_if(assignments.begin(),
+    auto it = std::find_if(assignments.begin(),
                                                                                                    assignments.end(),
                                                                                                    [name](Assignment *a) {
                                                                                                        string tn = a->task->name;
@@ -34,7 +34,7 @@ std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> ass
 
         std::for_each(assignments.begin(), assignments.end(),[](Assignment* a){cout<<a->task->name<<" on "<<a->processor->id<<", ";});
         cout<<endl;
-        throw new runtime_error("");
+        throw runtime_error("");
     }
 }
 
