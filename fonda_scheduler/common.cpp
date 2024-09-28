@@ -3,7 +3,7 @@
 //
 
 #include "../include/fonda_scheduler/common.hpp"
-#include "cluster.hpp"
+
 #include "graph.hpp"
 #include "fonda_scheduler/dynSched.hpp"
 
@@ -100,3 +100,26 @@ void checkForZeroMemories(graph_t *graph) {
         }
     }
 }
+
+void removeSourceAndTarget(graph_t *graph, vector<pair<vertex_t *, double>> &ranks) {
+
+    auto iterator = find_if(ranks.begin(), ranks.end(),
+                            [](pair<vertex_t *, int> pair1) { return pair1.first->name == "GRAPH_SOURCE"; });
+    if(iterator!= ranks.end()){
+        ranks.erase(iterator);
+    }
+    iterator = find_if(ranks.begin(), ranks.end(),
+                       [](pair<vertex_t *, int> pair1) { return pair1.first->name == "GRAPH_TARGET"; });
+    if(iterator!= ranks.end()){
+        ranks.erase(iterator);
+    }
+
+    vertex_t *startV = findVertexByName(graph, "GRAPH_SOURCE");
+    vertex_t *targetV = findVertexByName(graph, "GRAPH_TARGET");
+    if(startV!=NULL)
+        remove_vertex(graph, startV);
+    if(targetV!=NULL)
+        remove_vertex(graph, targetV);
+
+}
+
