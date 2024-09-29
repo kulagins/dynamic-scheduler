@@ -132,115 +132,18 @@ experiments:
     commands:
       - name: runtime_system
         executable: python
-        working_directory: "../../"
         args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 1
-          - -e
+          - -c
+          - "cd ../../ && python -m gear -w ${input_file} ${cluster} -a 1 -e"
       - name: scheduler
         executable: ./build/fonda_scheduler
 
-  - name: Algo2
-    commands:
-      - name: runtime_system
-        executable: python
-        working_directory: "../../"
-        args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 3
-          - -e
-      - name: scheduler
-        executable: ./build/fonda_scheduler
-
-  - name: Algo3
-    commands:
-      - name: runtime_system
-        executable: python
-        working_directory: "../../"
-        args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 3
-          - -e
-      - name: scheduler
-        executable: ./build/fonda_scheduler
-
-  - name: Algo4
-    commands:
-      - name: runtime_system
-        executable: python
-        working_directory: "../../"
-        args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 4
-          - -e
-      - name: scheduler
-        executable: ./build/fonda_scheduler
-
-  - name: Algo5
-    commands:
-      - name: runtime_system
-        executable: python
-        working_directory: "../../"
-        args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 5
-          - -e
-      - name: scheduler
-        executable: ./build/fonda_scheduler
-  - name: Algo6
-    commands:
-      - name: runtime_system
-        executable: python
-        working_directory: "../../"
-        args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 6
-          - -e
-      - name: scheduler
-        executable: ./build/fonda_scheduler
   - name: Algo7
     commands:
       - name: runtime_system
         executable: python
-        working_directory: "../../"
         args:
-          - -m
-          - gear
-          - -w
-          - ${input_file}
-          - ${cluster}
-          - -a
-          - 7
-          - -e
+          - -c
+          - "cd ../../ && python -m gear -w ${input_file} ${cluster} -a 7 -e"
       - name: scheduler
         executable: ./build/fonda_scheduler
