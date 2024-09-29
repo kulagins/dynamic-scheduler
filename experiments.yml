@@ -132,6 +132,7 @@ experiments:
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -142,12 +143,13 @@ experiments:
           - 1
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
 
   - name: Algo2
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -158,12 +160,13 @@ experiments:
           - 3
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
 
   - name: Algo3
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -174,12 +177,13 @@ experiments:
           - 3
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
 
   - name: Algo4
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -190,12 +194,13 @@ experiments:
           - 4
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
 
   - name: Algo5
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -206,11 +211,12 @@ experiments:
           - 5
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
   - name: Algo6
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -221,11 +227,12 @@ experiments:
           - 6
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
   - name: Algo7
     commands:
       - name: runtime_system
         executable: python
+        working_directory: "../../"
         args:
           - -m
           - gear
@@ -236,4 +243,4 @@ experiments:
           - 7
           - -e
       - name: scheduler
-        executable: ./dynamic-scheduler/build/fonda_scheduler
+        executable: ./build/fonda_scheduler
