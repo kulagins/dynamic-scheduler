@@ -1,14 +1,15 @@
-parameters:
-  input_file:
-    -atacseq:2223941232
-    -atacseq-workflow_1000:2223941232
-    -atacseq:14091675276
-    -chipseq-workflow_200:3793245764
-
-  cluster:
-    - "-m 4:1600:3 -m 32:3200:3 -m 6:6400:3 -m 12:1600:3 -m 8:800:3 -m 32:19200:3"
-    - "-m 4:1600:12 -m 32:3200:12 -m 6:6400:12"
-
+instances:
+  -atacseq:2223941232
+  -atacseq-workflow_1000:2223941232
+  -atacseq:14091675276
+  -chipseq-workflow_200:3793245764
+variants:
+  - axis: 'cluster-size'
+    items:
+      - name: 'normal'
+        extra_args: ['-m 4:1600:3 -m 32:3200:3 -m 6:6400:3 -m 12:1600:3 -m 8:800:3 -m 32:19200:3']
+      - name: 'short'
+        extra_args: ['-m 4:1600:12 -m 32:3200:12 -m 6:6400:12']
 
 experiments:
   - name: Algo1
@@ -17,7 +18,7 @@ experiments:
         executable: python
         args:
           - -c
-          - "cd ../../ && python -m gear -w ${input_file} ${cluster} -a 1 -e"
+          - "cd ../../ && python -m gear -w '@INSTANCE@' '@EXTRA_ARGS@', -a 1 -e"
       - name: scheduler
         executable: ./build/fonda_scheduler
 
@@ -27,6 +28,10 @@ experiments:
         executable: python
         args:
           - -c
-          - "cd ../../ && python -m gear -w ${input_file} ${cluster} -a 7 -e"
+          - "cd ../../ && python -m gear -w '@INSTANCE@' ${cluster} -a 7 -e"
       - name: scheduler
         executable: ./build/fonda_scheduler
+matrix:
+  include:
+    - experiments: [Algo1, Algo7]
+      axes: [normal, short]
