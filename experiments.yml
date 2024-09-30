@@ -1,9 +1,12 @@
 instances:
   - repo: local
     items:
-      - atacseq:2223941232
-      - chipseq-workflow_200:3793245764
-
+      - name: atacseq:2223941232
+        files: []
+        extra_args: ['atacseq:2223941232']
+      - name: chipseq-workflow_200:3793245764
+        files: [ ]
+        extra_args: ['chipseq-workflow_200:3793245764']
 
 variants:
   - axis: 'cluster-size'
@@ -15,12 +18,12 @@ variants:
 
 experiments:
   - name: Algo1
-    args: [ './experiments.sh', '-m gear', '-w', '@INSTANCE@', '@EXTRA_ARGS@', '-a 1', '-e' ]
+    args: [ './experiments.sh', '-m gear', '-w', '@EXTRA_ARGS@', '-a 1', '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
 
   - name: Algo7
-    args: [ './experiments.sh', '-m gear', '-w', '@INSTANCE@', '@EXTRA_ARGS@', '-a 7', '-e' ]
+    args: [ './experiments.sh', '-m gear', '-w',  '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
     stdout: out
 matrix:
   include:
