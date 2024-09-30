@@ -8,6 +8,7 @@ cd ../runtime-system || exit
 
 # Run the python script with all the arguments passed to this bash script
 echo "Executing: python $*"
+pwd
 python "$*"
 
 # Check if the python script ran successfully
