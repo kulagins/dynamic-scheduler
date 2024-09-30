@@ -18,7 +18,7 @@ variants:
 
 experiments:
   - name: Algo1
-    args: [ './experiment.sh', '-m gear', '@EXTRA_ARGS@', '-a 1', '-e' ] #'@INSTANCE@',
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 1', '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
 
