@@ -27,5 +27,5 @@ experiments:
   #  stdout: out
 matrix:
   include:
-    - experiments: [Algo1, Algo7]
+    - experiments: [Algo1]
       axes: [cluster-size]
