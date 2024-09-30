@@ -18,12 +18,12 @@ variants:
 
 experiments:
   - name: Algo1
-    args: [ './experiments.sh', '-m gear', '-w', '@EXTRA_ARGS@', '-a 1', '-e' ] #'@INSTANCE@',
+    args: [ './experiment.sh', '-m gear', '-w', '@EXTRA_ARGS@', '-a 1', '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
 
   - name: Algo7
-    args: [ './experiments.sh', '-m gear', '-w',  '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
+    args: [ './experiment.sh', '-m gear', '-w',  '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
     stdout: out
 matrix:
   include:
