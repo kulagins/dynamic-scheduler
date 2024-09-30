@@ -13,8 +13,8 @@ variants:
     items:
       - name: 'normal'
         extra_args: ['-m 4:1600:3 -m 32:3200:3 -m 6:6400:3 -m 12:1600:3 -m 8:800:3 -m 32:19200:3']
-      - name: 'short'
-        extra_args: ['-m 4:1600:12 -m 32:3200:12 -m 6:6400:12']
+     # - name: 'short'
+     #   extra_args: ['-m 4:1600:12 -m 32:3200:12 -m 6:6400:12']
 
 experiments:
   - name: Algo1
@@ -22,9 +22,9 @@ experiments:
     stdout: out
     num_threads: 24
 
-  - name: Algo7
-    args: [ './experiment.sh', '-m gear', '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
-    stdout: out
+  #- name: Algo7
+  #  args: [ './experiment.sh', '-m gear', '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
+  #  stdout: out
 matrix:
   include:
     - experiments: [Algo1, Algo7]
