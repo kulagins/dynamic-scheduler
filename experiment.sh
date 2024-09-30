@@ -7,7 +7,8 @@ echo "Arguments passed to the script: $*"
 cd ../runtime-system || exit
 
 # Run the python script with all the arguments passed to this bash script
-python "$@"
+echo "Executing: python $*"
+python "$*"
 
 # Check if the python script ran successfully
 if [ $? -ne 0 ]; then
