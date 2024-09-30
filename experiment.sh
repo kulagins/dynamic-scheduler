@@ -2,6 +2,7 @@
 pwd
 #!/bin/bash
 
+echo "Arguments passed to the script: $*"
 # Call the fonda_scheduler with no parameters
 ./build/fonda_scheduler
 
