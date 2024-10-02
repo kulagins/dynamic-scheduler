@@ -162,9 +162,11 @@ bool heft(graph_t *G, Cluster *cluster, double & makespan, vector<Assignment*> &
             double FT = numeric_limits<double>::max();
             bool isValid= true;
             double peakMem=0, startTime;
-            Processor * pinfake = tentativeAssignmentDespiteMemory(vertex,processorToCheckCorrectness,cluster,FT, startTime, isValid, peakMem);
-            bool isChange = pinfake != NULL;
-            pinfake = isChange ? pinfake : processorToCheckCorrectness;
+            vector<edge_t * > bestEdgesToKick;
+            double peakMemOnBestp=0;
+            int bestProcessorId;
+            vector<edge_t * > edgesToKick = tentativeAssignmentDespiteMemory(vertex,processorToCheckCorrectness,cluster,FT, startTime, isValid, peakMem);
+
             if(FT ==numeric_limits<double>::max()){
                 errorsHappened=true;
             }
@@ -173,11 +175,10 @@ bool heft(graph_t *G, Cluster *cluster, double & makespan, vector<Assignment*> &
                 errorsHappened= true;
             }
             if(!errorsHappened){
-                doRealAssignmentWithMemoryAdjustments(clusterToCheckCorrectness,FT,pinfake,
+                doRealAssignmentWithMemoryAdjustments(clusterToCheckCorrectness,FT,edgesToKick,
                                                       vertex, processorToCheckCorrectness);
             }
-            if(isChange)
-                delete pinfake;
+
 
         printDebug(" to "+ to_string(bestProc->id)+ " ready at "+ to_string(bestProc->readyTime));
             correctRtJJsOnPredecessors(cluster, vertex, bestProc);
@@ -286,29 +287,33 @@ std::vector < std::pair< vertex_t *, double> >  calculateMMBottomUpRank(graph_t 
 }
 
 
-void evict(Processor *modifiedProc, double &currentlyAvailableBuffer, double &stillTooMuch, bool evictBiggestFirst) {
+vector<edge_t*> evict(vector<edge_t*>  pendingMemories, double &currentlyAvailableBuffer, double &stillTooMuch, bool evictBiggestFirst) {
 
-    if (modifiedProc->pendingMemories.size() > 0)
-        assert((*modifiedProc->pendingMemories.begin())->weight <= (*modifiedProc->pendingMemories.rbegin())->weight);
+    vector<edge_t*> kickedOut;
+
+    if (!pendingMemories.empty())
+        assert((*pendingMemories.begin())->weight <= (*pendingMemories.rbegin())->weight);
     //printInlineDebug(" kick out ");
     if (!evictBiggestFirst) {
-        auto it = modifiedProc->pendingMemories.begin();
-        while (it != modifiedProc->pendingMemories.end() && stillTooMuch < 0) {
+        auto it = pendingMemories.begin();
+        while (it != pendingMemories.end() && stillTooMuch < 0) {
             stillTooMuch += (*it)->weight;
             currentlyAvailableBuffer -= (*it)->weight;
-            it = modifiedProc->pendingMemories.erase(it);
+            kickedOut.emplace_back(*it);
+            it = pendingMemories.erase(it);
+
         }
     } else {
-        for (auto it = modifiedProc->pendingMemories.end();
-             it != modifiedProc->pendingMemories.begin() && stillTooMuch < 0;) {
+        for (auto it = pendingMemories.end();
+             it != pendingMemories.begin() && stillTooMuch < 0;) {
             it--;
             stillTooMuch += (*it)->weight;
             currentlyAvailableBuffer -= (*it)->weight;
-            it = modifiedProc->pendingMemories.erase(it);
+            kickedOut.emplace_back(*it);
+            it = pendingMemories.erase(it);
         }
     }
-
-
+    return kickedOut;
 }
 
 double howMuchMemoryIsStillAvailableOnProcIfTaskScheduledThere3Part(const vertex_t *v, const Processor *pj) {
@@ -415,6 +420,7 @@ double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int e
     }
 
     double maxFinishTime = 0;
+    double sumPeakMems=0;
     for (const pair<vertex_t *, double> item: ranks) {
 
         vertex_t *vertexToAssign = item.first;
@@ -424,9 +430,9 @@ double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int e
 
         double minFinishTime= numeric_limits<double>::max();
         double startTimeToMinFinish;
-        Processor * bestp = nullptr;
+        vector<edge_t * > bestEdgesToKick;
         double peakMemOnBestp=0;
-        bool isChange = false;
+        int bestProcessorId;
 
         for (const auto &p: cluster->getProcessors()){
             assert(p->availableMemory>=0);
@@ -434,16 +440,14 @@ double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int e
 
             bool isValid = true;
             double peakMem = 0;
-            Processor *pinfake = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, startTime,
+            vector<edge_t * > edgesToKick = tentativeAssignmentDespiteMemory(vertexToAssign, p, cluster, finishTime, startTime,
                                                                   isValid, peakMem, evistBiggestFirst);
 
             if(isValid && minFinishTime>finishTime){
+                bestProcessorId = p->id;
                 minFinishTime = finishTime;
                 startTimeToMinFinish = startTime;
-                if(isChange)
-                    delete bestp;
-                isChange= pinfake != NULL;
-                bestp = isChange? pinfake: p;
+                bestEdgesToKick = edgesToKick;
                 peakMemOnBestp = peakMem;
             }
         }
@@ -454,22 +458,23 @@ double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int e
             return -1;
         }
 
-        Processor *procToChange = cluster->getProcessorById(bestp->id);
+        Processor *procToChange = cluster->getProcessorById(bestProcessorId);
         printDebug("Really assigning to proc "+ to_string(procToChange->id));
-        doRealAssignmentWithMemoryAdjustments(cluster, minFinishTime, bestp, vertexToAssign, procToChange);
+        doRealAssignmentWithMemoryAdjustments(cluster, minFinishTime, bestEdgesToKick, vertexToAssign, procToChange);
         Assignment * assignment = new Assignment(vertexToAssign, procToChange, startTimeToMinFinish, minFinishTime);
         assignments.emplace_back(assignment);
+        sumPeakMems+=peakMemOnBestp;
 
-        if(isChange)
-            delete bestp;
-        //assignments.emplace_back(new Assignment(vertexToAssign, new Processor(procToChange), minFinishTime,0));
+       //assignments.emplace_back(new Assignment(vertexToAssign, new Processor(procToChange), minFinishTime,0));
        maxFinishTime = max(maxFinishTime, minFinishTime);
        if(procToChange->peakMemConsumption<peakMemOnBestp) procToChange->peakMemConsumption= peakMemOnBestp;
+        bestEdgesToKick.resize(0);
     }
-    for (const auto &item: cluster->getProcessors()){
-        avgPeakMem+=item->peakMemConsumption;
-    }
-    avgPeakMem/=cluster->getNumberProcessors();
+    avgPeakMem = sumPeakMems/graph->number_of_vertices;
+   /// for (const auto &item: cluster->getProcessors()){
+    //    avgPeakMem+=item->peakMemConsumption;
+   // }
+   // avgPeakMem/=cluster->getNumberProcessors();
 
     std::sort(assignments.begin(), assignments.end(), [](Assignment* a, Assignment * b){
         return a->finishTime<b->finishTime;
@@ -477,14 +482,13 @@ double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int e
     return maxFinishTime;
 }
 
-void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, Processor *bestp,
-                                           vertex_t *vertexToAssign,
-                                           Processor *procToChange) {
+void doRealAssignmentWithMemoryAdjustments(Cluster *cluster, double futureReadyTime, const vector<edge_t*> & edgesToKick,
+                                           vertex_t *vertexToAssign,  Processor *procToChange) {
     vertexToAssign->assignedProcessor= procToChange;
 
     set<edge_t *>::iterator it;
     edge_t *pEdge;
-    kickEdgesThatNeededToKickedToFreeMemForTask(bestp, procToChange);
+    kickEdgesThatNeededToKickedToFreeMemForTask(edgesToKick, procToChange);
 
     //remove pending memories incoming in this vertex, release their memory
     it = procToChange->pendingMemories.begin();
@@ -563,38 +567,28 @@ double removeInputPendingEdgesFromEverywherePendingMemAndBuffer(const Cluster *c
     return availableMem;
 }
 
-void kickEdgesThatNeededToKickedToFreeMemForTask(Processor *bestp, Processor *procToChange) {
-    auto it = procToChange->pendingMemories.begin();
-    edge_t * pEdge = NULL;
-    int i = 0;
-    if(!procToChange->pendingMemories.empty()){
-        int bp_size = bestp->pendingMemories.size();
-         int numIterations =0;
-        while (it != procToChange->pendingMemories.end() && procToChange->pendingMemories.size()!= bp_size) {
-            numIterations++;
-            pEdge = *it;
-            auto foundInbestP = find_if(bestp->pendingMemories.begin(), bestp->pendingMemories.end(),
-                                             [pEdge](edge_t *edge) {
-                                                 return edge->tail->name == pEdge->tail->name &&
-                                                        edge->head->name == pEdge->head->name;
-                                             });
-            if (foundInbestP == bestp->pendingMemories.end() )  {
-                printDebug("really kicking edge " +(*it)->tail->name+"->" +(*it)->head->name+", ");
-                procToChange->availableBuffer -= (*it)->weight;
-                procToChange->pendingInBuffer.insert(*it);
-                procToChange->availableMemory+=(*it)->weight;
-                it = procToChange->pendingMemories.erase(it);
-                i++;
+void kickEdgesThatNeededToKickedToFreeMemForTask(const vector<edge_t *> &edgesToKick, Processor *procToChange) {
 
-            } else {
-                ++it;
-            }
+    for (auto &edgeToKick: edgesToKick){
+        auto foundInPendingMems = find_if(procToChange->pendingMemories.begin(), procToChange->pendingMemories.end(),
+                                    [edgeToKick](edge_t *edge) {
+                                        return edge->tail->name == edgeToKick->tail->name &&
+                                               edge->head->name == edgeToKick->head->name;
+                                    });
+        if (foundInPendingMems != procToChange->pendingMemories.end() )  {
+            printDebug("really kicking edge " +(*foundInPendingMems)->tail->name+"->" +(*foundInPendingMems)->head->name+", ");
+            procToChange->availableBuffer -= (*foundInPendingMems)->weight;
+            procToChange->pendingInBuffer.insert(*foundInPendingMems);
+            procToChange->availableMemory+=(*foundInPendingMems)->weight;
+            procToChange->pendingMemories.erase(foundInPendingMems);
+
+        } else {
+           cout<<"NOT FOUND EDGE TO KICK IN PENDING MEMS"<<endl;
         }
-       // if(numIterations>0) cout<<numIterations<<" iterations vs "<<numProcMems<<endl;
+
     }
+
     assert(procToChange->availableBuffer >= 0);
-    assert(procToChange->pendingMemories.size() == bestp->pendingMemories.size());
-    assert(procToChange->pendingInBuffer.size() >= i);
 }
 
 vector<pair<vertex_t *, double>> calculateBottomLevels(graph_t *graph, int bottomLevelVariant) {
@@ -626,10 +620,11 @@ vector<pair<vertex_t *, double>> calculateBottomLevels(graph_t *graph, int botto
 }
 
 
-Processor *
+vector<edge_t*>
 tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, double &finishTime, double &startTime,
                                  bool &isValid, double &peakMem, bool evictBiggestFirst) {
-    Processor *modifiedProc = NULL;
+
+    vector<edge_t* > edgesToKick;
 
     //step 1
     for (int j = 0; j < v->in_degree; j++) {
@@ -642,7 +637,7 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
                                         incomingEdge->tail->name == edge->tail->name;
                              })
                 == pj->pendingMemories.end()) {
-                cout<<"Failed because predecessors memory has been evicted on "<< predecessor->assignedProcessor->id<<endl;
+               // cout<<"Failed because predecessors memory has been evicted on "<< predecessor->assignedProcessor->id<<endl;
                isValid = false;
             }
         }
@@ -656,12 +651,26 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
     if(Res <0){
         //evict
       //  printDebug(" need to evict extra "+ to_string(Res));
-        modifiedProc = new Processor(pj);
         double currentlyAvailableBuffer;
         double stillTooMuch;
         stillTooMuch = Res;
-        currentlyAvailableBuffer = modifiedProc->availableBuffer;
-        evict(modifiedProc, currentlyAvailableBuffer, stillTooMuch, evictBiggestFirst);
+        currentlyAvailableBuffer = pj->availableBuffer;
+        std::vector<edge_t*> penMemsAsVector;//(pj->pendingMemories.size());
+        penMemsAsVector.reserve(pj->pendingMemories.size());
+        for (edge_t * e: pj->pendingMemories){
+            penMemsAsVector.emplace_back(e);
+        }
+        std::sort(penMemsAsVector.begin(), penMemsAsVector.end(),[](edge_t* a, edge_t*b) {
+                if(a->weight==b->weight){
+                    if(a->head->id==b->head->id)
+                        return a->tail->id< b->tail->id;
+                    else return a->head->id>b->head->id;
+                }
+                else
+                return a->weight<b->weight;
+        });
+        edgesToKick= evict(penMemsAsVector, currentlyAvailableBuffer, stillTooMuch,
+                                                evictBiggestFirst);
 
        // printInlineDebug(to_string(stillTooMuch));
 
@@ -684,7 +693,7 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
 
     finishTime = getFinishTimeWithPredecessorsAndBuffers(v, pj, cluster, startTime);
    // cout<<" starttime "<<startTime<<endl;
-    return modifiedProc;
+    return edgesToKick;
 }
 
 double exponentialTransformation(double x, double median, double scaleFactor) {

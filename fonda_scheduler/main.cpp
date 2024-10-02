@@ -13,6 +13,7 @@
 
 #include <chrono>
 #include <cstring>
+#include <csignal>
 
 
 
@@ -24,9 +25,16 @@ double lastTimestamp = 0;
 int currentAlgoNum = 0;
 int updateCounter=0;
 int delayCnt=0;
+std::shared_ptr<Http::Endpoint> endpoint;
 
 void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
+    delete currentWorkflow;
+   // delete currentCluster;
+    for (auto &item: currentAssignment){
+        delete item;
+    }
+    currentAssignment.resize(0);
     updateCounter=delayCnt=0;
     cout << fixed;
 
@@ -40,7 +48,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     string workflowName = bodyjson["workflow"]["name"];
     currentName = workflowName;
     int algoNumber = bodyjson["algorithm"].get<int>();
-    cout << "new, algo " << algoNumber << " ";
+    cout << "new, algo " << algoNumber << " " <<currentName<<" ";
 
     string filename = "../input/";
     string suffix = "00";
@@ -81,9 +89,8 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
     delete currentWorkflow;
     currentWorkflow = graphMemTopology;
-    delete currentCluster;
+    //delete currentCluster;
     currentCluster = cluster;
-    currentAssignment.resize(0);
     currentAssignment = assignments;
     currentAlgoNum = algoNumber;
     if(wasCorrect)
@@ -96,100 +103,140 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
 
 void update(const Rest::Request &req, Http::ResponseWriter resp) {
-    updateCounter++;
-
-    const string &basicString = req.body();
-    json bodyjson;
-    bodyjson = json::parse(basicString);
-    cout << "Update ";
-
-    double timestamp = bodyjson["time"];
-    //cout << "timestamp " << timestamp << ", reason " << bodyjson["reason"] << " ";
-    if (timestamp == lastTimestamp) {
-        cout << "time doesnt move";
-    } else lastTimestamp = timestamp;
-
-    string wholeReason = bodyjson["reason"];
-    size_t pos = wholeReason.find("occupied");
-    std::string partBeforeOccupied = wholeReason.substr(0, pos);
-    std::string partAfterOccupied = wholeReason.substr(pos + 11);
-
-    pos = partBeforeOccupied.find(": ");
-    pos += 2;
-    std::string nameOfTaskWithProblem = partBeforeOccupied.substr(pos);
-    nameOfTaskWithProblem = trimQuotes(nameOfTaskWithProblem);
-
-    pos = partAfterOccupied.find("on machine");
-    string nameOfProblemCause = partAfterOccupied.substr(0, pos);
-    nameOfProblemCause = trimQuotes(nameOfProblemCause);
-
-    pos = wholeReason.find(':');
-    string errorName = wholeReason.substr(0, pos);
-
-
-    double newStartTime = bodyjson["new_start_time"];
-    if(timestamp==newStartTime){
-        //cout<<endl<<"SAME TIME"<<endl;
+ /*   if(updateCounter>40){
+        for (auto &item: currentAssignment){
+            delete item;
+        }
+        currentAssignment.resize(0);
+        delete currentWorkflow;
+        endpoint->shutdown();
+        return;
     }
+*/
 
-    vertex_t * taskWithProblem = findVertexByName(currentWorkflow, nameOfTaskWithProblem);
+    try {
+        updateCounter++;
 
-    if (currentWorkflow != NULL) {
+        const string &basicString = req.body();
+        json bodyjson;
+        bodyjson = json::parse(basicString);
+        cout << "Update ";
 
-        cout << "num finished tasks: " << bodyjson["finished_tasks"].size() << " ";
-        for (auto element: bodyjson["finished_tasks"]) {
-            const string &elementWithQuotes = to_string(element);
-            string elem_string = trimQuotes(elementWithQuotes);
-            vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
-            if (vertex == NULL)
-                printDebug("Update: not found vertex to set as finished: " + elem_string + "\n");
-            else
-                //remove_vertex(currentWorkflow,vertex);
-                vertex->visited = true;
+        double timestamp = bodyjson["time"];
+        //cout << "timestamp " << timestamp << ", reason " << bodyjson["reason"] << " ";
+        if (timestamp == lastTimestamp) {
+            // cout << "time doesnt move";
+        } else lastTimestamp = timestamp;
+
+        string wholeReason = bodyjson["reason"];
+        size_t pos = wholeReason.find("occupied");
+        std::string partBeforeOccupied = wholeReason.substr(0, pos);
+        std::string partAfterOccupied = wholeReason.substr(pos + 11);
+
+        pos = partBeforeOccupied.find(": ");
+        pos += 2;
+        std::string nameOfTaskWithProblem = partBeforeOccupied.substr(pos);
+        nameOfTaskWithProblem = trimQuotes(nameOfTaskWithProblem);
+
+        pos = partAfterOccupied.find("on machine");
+        string nameOfProblemCause = partAfterOccupied.substr(0, pos);
+        nameOfProblemCause = trimQuotes(nameOfProblemCause);
+
+        pos = wholeReason.find(':');
+        string errorName = wholeReason.substr(0, pos);
+
+
+        double newStartTime = bodyjson["new_start_time"];
+        if (timestamp == newStartTime) {
+            //cout<<endl<<"SAME TIME"<<endl;
         }
 
-        if(errorName== "MachineInUseException" ||errorName== "TaskNotReadyException"){
-            Assignment *assignmOfProblem = (*findAssignmentByName(currentAssignment, nameOfTaskWithProblem));
-            Assignment *assignmOfProblemCauser = (*findAssignmentByName(currentAssignment, nameOfProblemCause));
-            bool isDelayPossible = isDelayPossibleUntil(assignmOfProblem,
-                                                          newStartTime, currentAssignment, currentCluster);
-            if (isDelayPossible && timestamp!=newStartTime) {
-                delayOneTask(resp, bodyjson, nameOfTaskWithProblem, newStartTime, assignmOfProblem);
+        vertex_t *taskWithProblem = findVertexByName(currentWorkflow, nameOfTaskWithProblem);
 
-            } else {
-                assignmOfProblemCauser->task->makespan= newStartTime;
-                assignmOfProblem->processor->readyTime= newStartTime;
-                completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
+        if (currentWorkflow != NULL) {
+            cout << errorName << " ";
+            //cout << "num finished tasks: " << bodyjson["finished_tasks"].size() << " ";
+            for (auto element: bodyjson["finished_tasks"]) {
+                const string &elementWithQuotes = to_string(element);
+                string elem_string = trimQuotes(elementWithQuotes);
+                vertex_t *vertex = findVertexByName(currentWorkflow, elem_string);
+                if (vertex == NULL)
+                    printDebug("Update: not found vertex to set as finished: " + elem_string + "\n");
+                else
+                    //remove_vertex(currentWorkflow,vertex);
+                    vertex->visited = true;
             }
 
-        }
-        else if(errorName== "InsufficientMemoryException") {
-            assert(nameOfProblemCause == taskWithProblem->name);
-            completeRecomputationOfSchedule(resp, bodyjson, timestamp,  taskWithProblem);
-        }
-        else if(errorName== "TookMuchLess") {
-            //cout<<" too short ";
-            vertex_t *vertex = findVertexByName(currentWorkflow, nameOfTaskWithProblem);
-            if (vertex == nullptr)
-                printDebug("Update: not found vertex that finished early: " + nameOfTaskWithProblem);
-            else {
-                //remove_vertex(currentWorkflow,vertex);
-                vertex->visited = true;
-                vertex->makespan = newStartTime;
-                vertex->assignedProcessor->readyTime = newStartTime;
-            }
-            assert(newStartTime==timestamp);
-            completeRecomputationOfSchedule(resp, bodyjson, timestamp, vertex);
-        }
+            if (errorName == "MachineInUseException" || errorName == "TaskNotReadyException") {
+                Assignment *assignmOfProblem = (*findAssignmentByName(currentAssignment, nameOfTaskWithProblem));
+                Assignment *assignmOfProblemCauser = (*findAssignmentByName(currentAssignment, nameOfProblemCause));
+                bool isDelayPossible = isDelayPossibleUntil(assignmOfProblem,
+                                                            newStartTime, currentAssignment, currentCluster);
+                if (isDelayPossible && timestamp != newStartTime) {
+                    delayOneTask(resp, bodyjson, nameOfTaskWithProblem, newStartTime, assignmOfProblem);
 
-    } else
-        resp.send(Http::Code::Not_Acceptable, "No workflow has been scheduled yet.");
-    cout<<updateCounter<<" "<<delayCnt<<endl;
+                } else {
+                    assignmOfProblemCauser->task->makespan = newStartTime;
+                    assignmOfProblem->processor->readyTime = newStartTime;
+                    completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
+                }
+
+            } else if (errorName == "InsufficientMemoryException") {
+                    double d=0;
+                try {
+                    // Convert string to double using stod
+                    d = std::stod(nameOfProblemCause);
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Invalid argument: " << e.what() << '\n';
+                    return;
+                } catch (const std::out_of_range& e) {
+                    std::cerr << "Out of range: " << e.what() << '\n';
+                    return;
+                }
+               taskWithProblem->memoryRequirement=d;
+               completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
+            } else if (errorName == "TookMuchLess") {
+                //cout<<" too short ";
+                vertex_t *vertex = findVertexByName(currentWorkflow, nameOfTaskWithProblem);
+                if (vertex == nullptr)
+                    printDebug("Update: not found vertex that finished early: " + nameOfTaskWithProblem);
+                else {
+                    //remove_vertex(currentWorkflow,vertex);
+                    vertex->visited = true;
+                    vertex->makespan = newStartTime;
+                    vertex->assignedProcessor->readyTime = newStartTime;
+                }
+                assert(newStartTime == timestamp);
+                completeRecomputationOfSchedule(resp, bodyjson, timestamp, vertex);
+            }
+
+        } else
+            resp.send(Http::Code::Not_Acceptable, "No workflow has been scheduled yet.");
+        cout << updateCounter << " " << delayCnt << endl;
+        cout<<currentWorkflow->first_vertex->name<<endl;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << std::endl;
+        resp.send(Http::Code::Not_Acceptable, "Error during scheduling.");
+    }
+    catch(...){
+        cout<<"Unknown error happened."<<endl;
+        resp.send(Http::Code::Not_Acceptable, "Error during scheduling.");
+    }
 }
 
+void handleSignal(int signal) {
+  //  std::cout << "Interrupt signal (" << signal << ") received." << std::endl;
+    // Perform cleanup or end the server here
+    //exit(signal);
 
-
+    std::cout << "Shutting down the server..." << std::endl;
+    endpoint->shutdown();
+}
 int main() {
+    signal(SIGINT, handleSignal);
+    signal(SIGTERM, handleSignal);
+    
     using namespace Rest;
     Debug = false;//true;
     std::cout << std::fixed << std::setprecision(3);
@@ -197,7 +244,7 @@ int main() {
     Router router;      // POST/GET/etc. route handler
     Port port(9900);    // port to listen on
     Address addr(Ipv4::any(), port);
-    std::shared_ptr<Http::Endpoint> endpoint = std::make_shared<Http::Endpoint>(addr);
+    endpoint = std::make_shared<Http::Endpoint>(addr);
     auto opts = Http::Endpoint::options().maxRequestSize(9291456).threads(1);
 
     endpoint->init(opts);
@@ -222,7 +269,9 @@ void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bod
     if(vertexThatHasAProblem->visited){
 
     }
-
+    for ( auto &item: currentAssignment){
+        delete item;
+    }
     currentAssignment.resize(0);
 
     bool wasCorrect; double resMS;
@@ -271,7 +320,7 @@ void delayOneTask(Http::ResponseWriter &resp, const json &bodyjson, string &name
 
     if (bodyjson.contains("running_tasks") && bodyjson["running_tasks"].is_array()) {
         const auto &runningTasks = bodyjson["running_tasks"];
-        cout << "num running tasks: " << runningTasks.size() << " ";
+       // cout << "num running tasks: " << runningTasks.size() << " ";
         for (const auto &item: runningTasks) {
             // Check if the required fields (name, start, machine) exist in each object
             if (item.contains("name") && item.contains("start") && item.contains("machine")) {
@@ -334,7 +383,7 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
 
     if (bodyjson.contains("running_tasks") && bodyjson["running_tasks"].is_array()) {
         const auto &runningTasks = bodyjson["running_tasks"];
-        cout << "num running tasks: " << runningTasks.size() << " "<<endl;
+        //cout << "num running tasks: " << runningTasks.size() << " ";
         for (const auto &item: runningTasks) {
             // Check if the required fields (name, start, machine) exist in each object
             if (item.contains("name") && item.contains("start") && item.contains("machine")) {
@@ -391,7 +440,7 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
                     for_each(currentAssignment.begin(), currentAssignment.end(), [](Assignment *a) {
                        // cout << a->task->name << " on " << a->processor->id << ", ";
                     });
-                    cout << endl;
+                    //cout << endl;
                     if (ver != NULL) {
                         Processor *procOfTas = updatedCluster->getProcessorById(machine);
                         //procOfTas->readyTime = procOfTas->
@@ -401,6 +450,7 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
                         //                                                ver->time / procOfTas->getProcessorSpeed());
                         procOfTas->availableMemory = procOfTas->getMemorySize() - ver->memoryRequirement;
                         assert(procOfTas->availableMemory>=0);
+                        procOfTas=NULL;
                     } else {
                         cout << "task also not found in the workflow" << endl;
                     }
@@ -441,11 +491,20 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
                                 });
                         if (foundInPendingBufsOfPredecessor == predecessor->assignedProcessor->pendingInBuffer.end()) {
                             //cout<<"NOT FOUND EDGE"<< incomingEdge->tail->name << " -> " << incomingEdge->head->name <<" NOT FOUND ANYWHERE; INSERTING IN MEMS"<<endl;
-                            auto insertResult= processorInUpdated->pendingMemories.insert(incomingEdge);
-                            if(insertResult.second) {
-                                processorInUpdated->availableMemory -= incomingEdge->weight;
+                            if(processorInUpdated->availableMemory - incomingEdge->weight<0){
+                                auto insertResult= processorInUpdated->pendingInBuffer.insert(incomingEdge);
+                                if(insertResult.second) {
+                                    processorInUpdated->availableBuffer -= incomingEdge->weight;
+                                }
+                                assert(processorInUpdated->availableMemory>=0);
+                            } else{
+                                auto insertResult= processorInUpdated->pendingMemories.insert(incomingEdge);
+                                if(insertResult.second) {
+                                    processorInUpdated->availableMemory -= incomingEdge->weight;
+                                }
+                                assert(processorInUpdated->availableMemory>=0);
                             }
-                            assert(processorInUpdated->availableMemory>=0);
+
 
                            // throw new runtime_error(
                             //        "edge " + incomingEdge->tail->name + " -> " + incomingEdge->head->name +
