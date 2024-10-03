@@ -59,7 +59,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     int algoNumber = bodyjson["algorithm"].get<int>();
     cout << "new, algo " << algoNumber << " " <<currentName<<" ";
 
-    string filename = "./input/";
+    string filename = "../input/";
     string suffix = "00";
     if (workflowName.substr(workflowName.size() - suffix.size()) == suffix) {
         filename += "generated/";//+filename;
@@ -70,7 +70,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     graphMemTopology = read_dot_graph(filename.c_str(), NULL, NULL, NULL);
     checkForZeroMemories(graphMemTopology);
 
-
+    currentAlgoNum = algoNumber;
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
     cluster->setHomogeneousBandwidth(10000);
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
@@ -86,6 +86,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     double resultingMS;
     vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName, wasCorrect, resultingMS);
 
+    if(wasCorrect){
     std::for_each(assignments.begin(), assignments.end(),[](Assignment* a){
       //  cout<<a->task->name<<" on "<<a->processor->id<< " "<<a->startTime<<" " <<a->finishTime<<endl;
     });
@@ -104,11 +105,10 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     for (auto &item: currentAssignment){
         currentAssignmentWithNoRecalculation.emplace_back(new Assignment(item->task, item->processor, item->startTime, item->finishTime));
     }
-    assert((*currentAssignment.begin())->startTime< currentAssignment.at(currentAssignment.size()-1)->startTime);
-    assert(currentAssignmentWithNoRecalculation.empty() || (*currentAssignmentWithNoRecalculation.begin())->startTime< currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
-    currentAlgoNum = algoNumber;
-    if(wasCorrect)
-        resp.send(Http::Code::Ok, answerJson);
+    assert((*currentAssignment.begin())->startTime<= currentAssignment.at(currentAssignment.size()-1)->startTime);
+    assert(currentAssignmentWithNoRecalculation.empty() || (*currentAssignmentWithNoRecalculation.begin())->startTime<= currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
+    resp.send(Http::Code::Ok, answerJson);
+    }
     else
         resp.send(Http::Code::Not_Acceptable, "unacceptable schedule");
 
