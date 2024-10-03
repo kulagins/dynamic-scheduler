@@ -26,6 +26,9 @@ public:
         this->startTime = st;
         this->finishTime = ft;
     }
+    ~Assignment(){
+
+    }
 
     nlohmann::json toJson() const {
         string tn = task->name;
@@ -56,5 +59,7 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
 
 void delayOneTask(Http::ResponseWriter &resp, const json &bodyjson, string &nameOfTaskWithProblem, double newStartTime,
                   Assignment *assignmOfProblem);
+void delayEverythingBy(vector<Assignment*> &assignments, Assignment * startingPoint, double delayTime);
+void takeOverChangesFromRunningTasks(json bodyjson, graph_t* currentWorkflow, vector<Assignment *> & assignments);
 
 #endif

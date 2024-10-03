@@ -45,7 +45,7 @@ string answerWithJson(vector<Assignment *> assignments, string workflowName);
 vector<Assignment*> runAlgorithm(int algorithmNumber, graph_t * graphMemTopology, Cluster *cluster, string workflowName, bool& wasCorrect, double & resultingMS);
 vertex_t * getLongestPredecessorWithBuffers(vertex_t *child, const Cluster *cluster, double &latestPredecessorFinishTime);
 bool isDelayPossibleUntil(Assignment* assignmentToDelay, double newStartTime, vector<Assignment*> assignments, Cluster* cluster);
-std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> assignments, string name);
+std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> &assignments, string name);
 
 
 
