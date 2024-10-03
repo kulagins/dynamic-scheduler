@@ -1,12 +1,12 @@
+#      - name: atacseq:2223941232
+#        files: []
+#        extra_args: ['-w atacseq:2223941232']
+#      - name: chipseq-workflow_200:3793245764
+#        files: []
+#        extra_args: ['-w chipseq-workflow_200:3793245764']
 instances:
   - repo: local
     items:
-      - name: atacseq:2223941232
-        files: []
-        extra_args: ['-w atacseq:2223941232']
-      - name: chipseq-workflow_200:3793245764
-        files: []
-        extra_args: ['-w chipseq-workflow_200:3793245764']
       - name: atacseq:2223941232
         files: []
         extra_args: [ '-w atacseq:2223941232' ]
