@@ -271,7 +271,7 @@ int main() {
     
     using namespace Rest;
     Debug = false;//true;
-    std::cout << std::fixed << std::setprecision(3);
+    std::cout << std::fixed ;//<< std::setprecision(3);
 
     Router router;      // POST/GET/etc. route handler
     Port port(9900);    // port to listen on
