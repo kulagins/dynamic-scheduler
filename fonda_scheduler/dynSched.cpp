@@ -2,10 +2,19 @@
 
 #include <iterator>
 
-std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> assignments, string name) {
+std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> &assignments, string name) {
+    string nameTL = name;
+    std::transform(
+            nameTL.begin(),
+            nameTL.end(),
+            nameTL.begin(),
+            [](unsigned char c) {
+                return std::tolower(
+                        c);
+            });
     auto it = std::find_if(assignments.begin(),
                                                                                                    assignments.end(),
-                                                                                                   [name](Assignment *a) {
+                                                                                                   [nameTL](Assignment *a) {
                                                                                                        string tn = a->task->name;
                                                                                                        std::transform(
                                                                                                                tn.begin(),
@@ -15,15 +24,7 @@ std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> ass
                                                                                                                    return std::tolower(
                                                                                                                            c);
                                                                                                                });
-                                                                                                       string nameTL = name;
-                                                                                                       std::transform(
-                                                                                                               nameTL.begin(),
-                                                                                                               nameTL.end(),
-                                                                                                               nameTL.begin(),
-                                                                                                               [](unsigned char c) {
-                                                                                                                   return std::tolower(
-                                                                                                                           c);
-                                                                                                               });
+
                                                                                                        return tn ==
                                                                                                               nameTL;
                                                                                                    });
@@ -31,10 +32,9 @@ std::vector<Assignment*>::iterator findAssignmentByName(vector<Assignment *> ass
         return it;
     } else {
         cout << "no assignment found for " << name << endl;
-
         std::for_each(assignments.begin(), assignments.end(),[](Assignment* a){cout<<a->task->name<<" on "<<a->processor->id<<", ";});
         cout<<endl;
-        throw runtime_error("");
+        throw runtime_error("find assignment by name failed, no assignment found for "+name);
     }
 }
 
@@ -50,6 +50,10 @@ bool isDelayPossibleUntil(Assignment *assignmentToDelay, double newStartTime, ve
         assert(vertexToDelay->out_edges[j]->tail == vertexToDelay);
         vertex_t *child = vertexToDelay->out_edges[j]->head;
         auto childAssignment = findAssignmentByName(assignments, child->name);
+        if(childAssignment== assignments.end()){
+            cout<<"NOT FOUND CHILD ASSIGNEMNT for child "<< child->name<<" , is finished or running? "<<child->visited<<" "<<endl;
+            continue;
+        }
         auto startOfChild = (*childAssignment)->startTime;        
         double latestPredFinishTime = 0;
         auto longestPredecessor = getLongestPredecessorWithBuffers(child, cluster, latestPredFinishTime);

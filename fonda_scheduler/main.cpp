@@ -21,20 +21,29 @@ graph_t *currentWorkflow = NULL;
 string currentName;
 Cluster *currentCluster;
 vector<Assignment *> currentAssignment;
+
 double lastTimestamp = 0;
 int currentAlgoNum = 0;
 int updateCounter=0;
 int delayCnt=0;
+
+vector<Assignment *> currentAssignmentWithNoRecalculation;
+bool isNoRecalculationStillValid= true;
+
 std::shared_ptr<Http::Endpoint> endpoint;
 
 void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
-    delete currentWorkflow;
-   // delete currentCluster;
     for (auto &item: currentAssignment){
         delete item;
     }
+    for (auto &item: currentAssignmentWithNoRecalculation){
+        delete item;
+    }
     currentAssignment.resize(0);
+    delete currentWorkflow;
+    delete currentCluster;
+
     updateCounter=delayCnt=0;
     cout << fixed;
 
@@ -92,6 +101,11 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     //delete currentCluster;
     currentCluster = cluster;
     currentAssignment = assignments;
+    for (auto &item: currentAssignment){
+        currentAssignmentWithNoRecalculation.emplace_back(new Assignment(item->task, item->processor, item->startTime, item->finishTime));
+    }
+    assert((*currentAssignment.begin())->startTime< currentAssignment.at(currentAssignment.size()-1)->startTime);
+    assert(currentAssignmentWithNoRecalculation.empty() || (*currentAssignmentWithNoRecalculation.begin())->startTime< currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
     currentAlgoNum = algoNumber;
     if(wasCorrect)
         resp.send(Http::Code::Ok, answerJson);
@@ -103,16 +117,20 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
 
 void update(const Rest::Request &req, Http::ResponseWriter resp) {
- /*   if(updateCounter>40){
+   /* if(updateCounter>40){
         for (auto &item: currentAssignment){
+            delete item;
+        }
+        for (auto &item: currentAssignmentWithNoRecalculation){
             delete item;
         }
         currentAssignment.resize(0);
         delete currentWorkflow;
+        delete currentCluster;
         endpoint->shutdown();
         return;
-    }
-*/
+    } */
+
 
     try {
         updateCounter++;
@@ -180,8 +198,14 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
                     assignmOfProblem->processor->readyTime = newStartTime;
                     completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
                 }
+                takeOverChangesFromRunningTasks(bodyjson, currentWorkflow, currentAssignmentWithNoRecalculation);
+                delayEverythingBy(currentAssignmentWithNoRecalculation, assignmOfProblem, newStartTime-assignmOfProblem->startTime);
+                std::sort(currentAssignmentWithNoRecalculation.begin(), currentAssignmentWithNoRecalculation.end(), [](Assignment* a, Assignment * b){
+                    return a->finishTime<b->finishTime;
+                });
 
-            } else if (errorName == "InsufficientMemoryException") {
+            } else
+                if (errorName == "InsufficientMemoryException") {
                     double d=0;
                 try {
                     // Convert string to double using stod
@@ -195,6 +219,8 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
                 }
                taskWithProblem->memoryRequirement=d;
                completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
+               isNoRecalculationStillValid=false;
+
             } else if (errorName == "TookMuchLess") {
                 //cout<<" too short ";
                 vertex_t *vertex = findVertexByName(currentWorkflow, nameOfTaskWithProblem);
@@ -212,8 +238,14 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
 
         } else
             resp.send(Http::Code::Not_Acceptable, "No workflow has been scheduled yet.");
+
+        std::sort(currentAssignment.begin(), currentAssignment.end(), [](Assignment* a, Assignment * b){
+            return a->finishTime<b->finishTime;
+        });
+        assert((*currentAssignment.begin())->finishTime<= currentAssignment.at(currentAssignment.size()-1)->finishTime);
+      //  assert(currentAssignmentWithNoRecalculation.empty() ||(*currentAssignmentWithNoRecalculation.begin())->startTime<= currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
+        cout<<" no_recomputation: "<< (isNoRecalculationStillValid && !currentAssignmentWithNoRecalculation.empty() ? currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->finishTime: -1)<<" ";
         cout << updateCounter << " " << delayCnt << endl;
-        cout<<currentWorkflow->first_vertex->name<<endl;
     }
     catch (const std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
@@ -294,7 +326,12 @@ void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bod
         //cout<<a->task->name<<" on "<<a->processor->id<< " " <<a->startTime<<" "<<a->finishTime<<endl;
     });
 
+    for (auto &item: currentAssignment){
+        delete item;
+    }
+    currentAssignment.resize(0);
     currentAssignment = assignments;
+    //delete currentCluster;
     currentCluster=updatedCluster;
     //cout<<updateCounter<<" "<<delayCnt<<endl;
     if (!wasCorrect ||assignments.size() == tempAssignments.size()) {
@@ -468,19 +505,20 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
 
     vertex_t *vertex = currentWorkflow->first_vertex;
     while (vertex != nullptr) {
-        if (!vertex->visited)
+        if (!vertex->visited) {
             for (int j = 0; j < vertex->in_degree; j++) {
                 edge *incomingEdge = vertex->in_edges[j];
                 vertex_t *predecessor = incomingEdge->tail;
                 if (predecessor->visited) {
                     Processor *processorInUpdated = updatedCluster->getProcessorById(
                             predecessor->assignedProcessor->id);
-                    auto foundInPendingMemsOfPredecessor = find_if(predecessor->assignedProcessor->pendingMemories.begin(),
-                                                                   predecessor->assignedProcessor->pendingMemories.end(),
-                                                                   [incomingEdge](edge_t *edge) {
-                                                          return edge->tail->name == incomingEdge->tail->name &&
-                                                                 edge->head->name == incomingEdge->head->name;
-                                                      });
+                    auto foundInPendingMemsOfPredecessor = find_if(
+                            predecessor->assignedProcessor->pendingMemories.begin(),
+                            predecessor->assignedProcessor->pendingMemories.end(),
+                            [incomingEdge](edge_t *edge) {
+                                return edge->tail->name == incomingEdge->tail->name &&
+                                       edge->head->name == incomingEdge->head->name;
+                            });
                     if (foundInPendingMemsOfPredecessor == predecessor->assignedProcessor->pendingMemories.end()) {
                         auto foundInPendingBufsOfPredecessor = find_if(
                                 predecessor->assignedProcessor->pendingInBuffer.begin(),
@@ -491,42 +529,44 @@ prepareClusterWithChangesAtTimestamp(const json &bodyjson, double timestamp, vec
                                 });
                         if (foundInPendingBufsOfPredecessor == predecessor->assignedProcessor->pendingInBuffer.end()) {
                             //cout<<"NOT FOUND EDGE"<< incomingEdge->tail->name << " -> " << incomingEdge->head->name <<" NOT FOUND ANYWHERE; INSERTING IN MEMS"<<endl;
-                            if(processorInUpdated->availableMemory - incomingEdge->weight<0){
-                                auto insertResult= processorInUpdated->pendingInBuffer.insert(incomingEdge);
-                                if(insertResult.second) {
+                            if (processorInUpdated->availableMemory - incomingEdge->weight < 0) {
+                                auto insertResult = processorInUpdated->pendingInBuffer.insert(incomingEdge);
+                                if (insertResult.second) {
                                     processorInUpdated->availableBuffer -= incomingEdge->weight;
                                 }
-                                assert(processorInUpdated->availableMemory>=0);
-                            } else{
-                                auto insertResult= processorInUpdated->pendingMemories.insert(incomingEdge);
-                                if(insertResult.second) {
+                                assert(processorInUpdated->availableMemory >= 0);
+                            } else {
+                                auto insertResult = processorInUpdated->pendingMemories.insert(incomingEdge);
+                                if (insertResult.second) {
                                     processorInUpdated->availableMemory -= incomingEdge->weight;
                                 }
-                                assert(processorInUpdated->availableMemory>=0);
+                                assert(processorInUpdated->availableMemory >= 0);
                             }
 
 
-                           // throw new runtime_error(
+                            // throw new runtime_error(
                             //        "edge " + incomingEdge->tail->name + " -> " + incomingEdge->head->name +
-                             //       " found neither in pending mems, nor in bufs of processor " +
-                              //      to_string(predecessor->assignedProcessor->id));
+                            //       " found neither in pending mems, nor in bufs of processor " +
+                            //      to_string(predecessor->assignedProcessor->id));
 
                         } else {
 
                             auto insertResult = processorInUpdated->pendingInBuffer.insert(incomingEdge);
-                            if(insertResult.second) {
+                            if (insertResult.second) {
                                 processorInUpdated->availableBuffer -= incomingEdge->weight;
                             }
                         }
                     } else {
-                        auto insertResult= processorInUpdated->pendingMemories.insert(incomingEdge);
-                        if(insertResult.second) {
+                        auto insertResult = processorInUpdated->pendingMemories.insert(incomingEdge);
+                        if (insertResult.second) {
                             processorInUpdated->availableMemory -= incomingEdge->weight;
                         }
-                        assert(processorInUpdated->availableMemory>=0);
+                        assert(processorInUpdated->availableMemory >= 0);
                     }
                 }
             }
+        }
+
         vertex = vertex->next;
     }
 
@@ -600,7 +640,7 @@ runAlgorithm(int algorithmNumber, graph_t *graphMemTopology, Cluster *cluster, s
         }
         auto end = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
-        std::cout << " duration of algorithm " << elapsed_seconds.count()<<" ";// << endl;
+        std::cout << " duration_of_algorithm " << elapsed_seconds.count()<<" ";// << endl;
 
     }
     catch (std::runtime_error &e) {

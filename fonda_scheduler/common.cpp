@@ -9,6 +9,63 @@
 
 bool Debug;
 
+void takeOverChangesFromRunningTasks(json bodyjson, graph_t* currentWorkflow, vector<Assignment *> & assignments){
+    if (bodyjson.contains("running_tasks") && bodyjson["running_tasks"].is_array()) {
+        const auto &runningTasks = bodyjson["running_tasks"];
+        //cout << "num running tasks: " << runningTasks.size() << " ";
+        for (const auto &item: runningTasks) {
+            // Check if the required fields (name, start, machine) exist in each object
+            if (item.contains("name") && item.contains("start") && item.contains("machine")) {
+                string name = item["name"];
+                double start = item["start"];
+                int machine = item["machine"];
+                double realWork = item["work"];
+
+                // Print the values of the fields to the console
+                // std::cout << "Name: " << name << ", Start: " << start << ", Machine: " << machine << std::endl;
+                name = trimQuotes(name);
+                vertex_t *ver = findVertexByName(currentWorkflow, name);
+                ver->visited = true;
+                const vector<Assignment *>::iterator &it_assignm = std::find_if(assignments.begin(),
+                                                                                assignments.end(),
+                                                                                [name](Assignment *a) {
+                                                                                    string tn = a->task->name;
+                                                                                    transform(tn.begin(),
+                                                                                              tn.end(),
+                                                                                              tn.begin(),
+                                                                                              [](unsigned char c) {
+                                                                                                  return tolower(
+                                                                                                          c);
+                                                                                              });
+                                                                                    return tn == name;
+                                                                                });
+                if (it_assignm != assignments.end() && realWork>(*it_assignm)->task->time) {
+                    double realFinishTimeComputed = start + realWork /
+                                                            (*it_assignm)->processor->getProcessorSpeed();
+                    (*it_assignm)->startTime = start;
+                    (*it_assignm)->finishTime = realFinishTimeComputed;
+                }
+
+            } else {
+                cerr << "One or more fields missing in a running task object." << endl;
+            }
+        }
+
+    } else {
+        cout << "No running tasks found or wrong schema." << endl;
+    }
+}
+
+void delayEverythingBy(vector<Assignment*> &assignments, Assignment * startingPoint, double delayTime){
+
+    for (auto &assignment: assignments){
+        if(assignment->startTime>= startingPoint->startTime){
+            assignment->startTime+=delayTime;
+            assignment->finishTime+=delayTime;
+        }
+    }
+}
+
 
 std::string trimQuotes(const std::string& str) {
     if (str.empty()) {
