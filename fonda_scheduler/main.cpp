@@ -69,7 +69,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     int algoNumber = bodyjson["algorithm"].get<int>();
     cout << "new, algo " << algoNumber << " " <<currentName<<" ";
 
-    string filename = "../input/";
+    string filename = "./input/";
     string suffix = "00";
     if (workflowName.substr(workflowName.size() - suffix.size()) == suffix) {
         filename += "generated/";//+filename;
