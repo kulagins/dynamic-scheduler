@@ -92,6 +92,8 @@ public:
     //TODO impelement
     ~Processor() {
         //  if (assignedTask != nullptr) delete assignedTask;
+        pendingMemories.clear();
+        pendingInBuffer.clear();
     }
 
     double getMemorySize() const {

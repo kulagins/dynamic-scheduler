@@ -26,6 +26,7 @@ double lastTimestamp = 0;
 int currentAlgoNum = 0;
 int updateCounter=0;
 int delayCnt=0;
+double lastAvgMem;
 
 vector<Assignment *> currentAssignmentWithNoRecalculation;
 bool isNoRecalculationStillValid= true;
@@ -34,17 +35,26 @@ std::shared_ptr<Http::Endpoint> endpoint;
 
 void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
 
-    for (auto &item: currentAssignment){
+ /*   for (auto &item: currentAssignment){
         delete item;
     }
     for (auto &item: currentAssignmentWithNoRecalculation){
         delete item;
     }
-    currentAssignment.resize(0);
-    delete currentWorkflow;
-    delete currentCluster;
 
+    if(currentWorkflow!=NULL)
+        free_graph(currentWorkflow);
+    if(currentCluster!=NULL){
+     //   for (auto &item: currentCluster->getProcessors()){
+      //      delete item;
+     //   }
+     //   delete currentCluster;
+
+    } */
+    currentAssignment.resize(0);
+    currentAssignmentWithNoRecalculation.resize(0);
     updateCounter=delayCnt=0;
+    isNoRecalculationStillValid=true;
     cout << fixed;
 
     graph_t *graphMemTopology;
@@ -81,7 +91,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
         maxMemReq = peakMemoryRequirementOfVertex(vertex) > maxMemReq?peakMemoryRequirementOfVertex(vertex):maxMemReq;
         vertex = vertex->next;
     }
-    cout<<"MAX MEM REQ "<<maxMemReq<<endl;
+    //cout<<"MAX MEM REQ "<<maxMemReq<< " ";
     bool wasCorrect;
     double resultingMS;
     vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName, wasCorrect, resultingMS);
@@ -97,22 +107,23 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     Http::Uri::Query &query = const_cast<Http::Uri::Query &>(req.query());
     query.as_str();
 
-    delete currentWorkflow;
     currentWorkflow = graphMemTopology;
-    //delete currentCluster;
     currentCluster = cluster;
     currentAssignment = assignments;
     for (auto &item: currentAssignment){
         currentAssignmentWithNoRecalculation.emplace_back(new Assignment(item->task, item->processor, item->startTime, item->finishTime));
     }
     assert((*currentAssignment.begin())->startTime<= currentAssignment.at(currentAssignment.size()-1)->startTime);
-    assert(currentAssignmentWithNoRecalculation.empty() || (*currentAssignmentWithNoRecalculation.begin())->startTime<= currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
+    assert(currentAssignmentWithNoRecalculation.empty() ||
+    (*currentAssignmentWithNoRecalculation.begin())->startTime<=
+    currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
     resp.send(Http::Code::Ok, answerJson);
     }
     else
         resp.send(Http::Code::Not_Acceptable, "unacceptable schedule");
 
-    cout <<endl <<"RESULTING MS "<<resultingMS<<endl;
+   // cout <<"RESULTING MS "<<resultingMS<<endl;
+   cout<<endl;
 }
 
 
@@ -187,11 +198,13 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
 
             if (errorName == "MachineInUseException" || errorName == "TaskNotReadyException") {
                 Assignment *assignmOfProblem = (*findAssignmentByName(currentAssignment, nameOfTaskWithProblem));
+                assert(assignmOfProblem->startTime>=0);
                 Assignment *assignmOfProblemCauser = (*findAssignmentByName(currentAssignment, nameOfProblemCause));
                 bool isDelayPossible = isDelayPossibleUntil(assignmOfProblem,
                                                             newStartTime, currentAssignment, currentCluster);
                 if (isDelayPossible && timestamp != newStartTime) {
                     delayOneTask(resp, bodyjson, nameOfTaskWithProblem, newStartTime, assignmOfProblem);
+                    cout<<"yes "<< lastAvgMem <<" duration_of_algorithm 0.0 ";
 
                 } else {
                     assignmOfProblemCauser->task->makespan = newStartTime;
@@ -265,7 +278,7 @@ void handleSignal(int signal) {
     std::cout << "Shutting down the server..." << std::endl;
     endpoint->shutdown();
 }
-int main() {
+int main(int argc, char *argv[]) {
     signal(SIGINT, handleSignal);
     signal(SIGTERM, handleSignal);
     
@@ -273,13 +286,14 @@ int main() {
     Debug = false;//true;
     std::cout << std::fixed ;//<< std::setprecision(3);
 
+    int portFromArgs = argc>0 ? stoi(argv[1]): 9900;
+
     Router router;      // POST/GET/etc. route handler
-    Port port(9900);    // port to listen on
+    Port port(portFromArgs);    // port to listen on
     Address addr(Ipv4::any(), port);
     endpoint = std::make_shared<Http::Endpoint>(addr);
-    auto opts = Http::Endpoint::options().maxRequestSize(9291456).threads(1);
-
-    endpoint->init(opts);
+    auto opts = Http::Endpoint::options().maxRequestSize(9291456).threads(1).flags(Tcp::Options::ReuseAddr | Tcp::Options::ReusePort);
+     endpoint->init(opts);
 
     /* routes! */
     Routes::Post(router, "/wf/:id/update", Routes::bind(&update));
@@ -301,10 +315,13 @@ void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bod
     if(vertexThatHasAProblem->visited){
 
     }
-    for ( auto &item: currentAssignment){
-        delete item;
-    }
-    currentAssignment.resize(0);
+   // for ( auto &item: currentAssignment){
+   //     delete item;
+    //}
+   // currentAssignment.resize(0);
+ //   for (auto &item: currentCluster->getProcessors()){
+//        delete item;
+ //   }
 
     bool wasCorrect; double resMS;
     assignments = runAlgorithm(currentAlgoNum, currentWorkflow, updatedCluster, currentName, wasCorrect, resMS);
@@ -326,15 +343,12 @@ void completeRecomputationOfSchedule(Http::ResponseWriter &resp, const json &bod
         //cout<<a->task->name<<" on "<<a->processor->id<< " " <<a->startTime<<" "<<a->finishTime<<endl;
     });
 
-    for (auto &item: currentAssignment){
-        delete item;
-    }
-    currentAssignment.resize(0);
     currentAssignment = assignments;
     //delete currentCluster;
     currentCluster=updatedCluster;
     //cout<<updateCounter<<" "<<delayCnt<<endl;
-    if (!wasCorrect ||assignments.size() == tempAssignments.size()) {
+    //||assignments.size() == tempAssignments.size()
+    if (!wasCorrect ) {
        resp.send(Http::Code::Precondition_Failed, answerJson);
     } else {
         resp.send(Http::Code::Ok, answerJson);
@@ -594,37 +608,43 @@ runAlgorithm(int algorithmNumber, graph_t *graphMemTopology, Cluster *cluster, s
                 double d = heuristic(graphMemTopology, cluster, 1, 0, assignments, avgPeakMem);
                 resultingMS = d;
                 wasCrrect =( d!=-1);
-                cout << workflowName << " " << d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
+                cout << //workflowName << " " <<
+                d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
                 break;
             }
             case 2: {
                 double d = heuristic(graphMemTopology, cluster, 1, 1, assignments, avgPeakMem);
                 wasCrrect =( d!=-1);resultingMS = d;
-                cout << workflowName << " " << d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
+                cout << //workflowName << " " <<
+                d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
                 break;
             }
             case 3: {
                 double d = heuristic(graphMemTopology, cluster, 2, 0, assignments, avgPeakMem);
                 wasCrrect =( d!=-1);resultingMS = d;
-                cout << workflowName << " " << d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
+                cout << //workflowName << " " <<
+                d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
                 break;
             }
             case 4: {
                 double d = heuristic(graphMemTopology, cluster, 2, 1, assignments, avgPeakMem);
                 wasCrrect =( d!=-1);resultingMS = d;
-                cout << workflowName << " " << d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
+                cout << //workflowName << " " <<
+                d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
                 break;
             }
             case 5: {
                 double d = heuristic(graphMemTopology, cluster, 3, 0, assignments, avgPeakMem);
                 wasCrrect =( d!=-1);resultingMS = d;
-                cout << workflowName << " " << d << (wasCrrect ? " yes " : " no") << avgPeakMem;
+                cout << //workflowName << " " <<
+                d << (wasCrrect ? " yes " : " no") << avgPeakMem;
                 break;
             }
             case 6: {
                 double d = heuristic(graphMemTopology, cluster, 3, 1, assignments, avgPeakMem);
                 wasCrrect =( d!=-1);resultingMS = d;
-                cout << workflowName << " " << d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
+                cout << //workflowName << " " <<
+                d << (wasCrrect ? " yes " : " no ") << avgPeakMem;
                 break;
             }
             case 7: {
@@ -632,12 +652,14 @@ runAlgorithm(int algorithmNumber, graph_t *graphMemTopology, Cluster *cluster, s
                         0;
                 wasCrrect = heft(graphMemTopology, cluster, ms, assignments, avgPeakMem);
                 resultingMS = ms;
-                cout << workflowName << " " << ms << (wasCrrect ? " yes" : " no") << " " << avgPeakMem<<endl;
+                cout << //workflowName << " " <<
+                ms << (wasCrrect ? " yes" : " no") << " " << avgPeakMem<<endl;
                 break;
             }
             default:
                 cout << "UNKNOWN ALGORITHM" << endl;
         }
+        lastAvgMem= avgPeakMem;
         auto end = std::chrono::system_clock::now();
         std::chrono::duration<double> elapsed_seconds = end - start;
         std::cout << " duration_of_algorithm " << elapsed_seconds.count()<<" ";// << endl;
