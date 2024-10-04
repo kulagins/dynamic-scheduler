@@ -65,6 +65,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     // cout<<"Scheduler received a new workflow schedule request: "<<endl;//basicString<<endl;
 
     string workflowName = bodyjson["workflow"]["name"];
+    workflowName = trimQuotes(workflowName);
     currentName = workflowName;
     int algoNumber = bodyjson["algorithm"].get<int>();
     cout << "new, algo " << algoNumber << " " <<currentName<<" ";
