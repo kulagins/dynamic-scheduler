@@ -13,9 +13,9 @@ instances:
       - name: atacseq-workflow_1000:2223941232
         files: []
         extra_args: [ '-w atacseq-workflow_1000:2223941232' ]
-      - name: atacseq-workflow_15000:2223941232
-        files: []
-        extra_args: [ '-w atacseq-workflow_15000:2223941232' ]
+      #- name: atacseq-workflow_15000:2223941232
+      #  files: []
+      #  extra_args: [ '-w atacseq-workflow_15000:2223941232' ]
       - name: atacseq-workflow_2000:2223941232
         files: []
         extra_args: [ '-w atacseq-workflow_2000:2223941232' ]
@@ -25,15 +25,15 @@ instances:
       - name: atacseq-workflow_4000:2223941232
         files: []
         extra_args: [ '-w atacseq-workflow_4000:2223941232' ]
-      - name: atacseq-workflow_8000:2223941232
-        files: []
-        extra_args: [ '-w atacseq-workflow_8000:2223941232' ]
+     # - name: atacseq-workflow_8000:2223941232
+     #   files: []
+     #   extra_args: [ '-w atacseq-workflow_8000:2223941232' ]
       - name: atacseq:3908761308
         files: []
         extra_args: [ '-w atacseq:3908761308' ]
-      - name: atacseq-workflow_10000:3908761308
-        files: []
-        extra_args: [ '-w atacseq-workflow_10000:3908761308' ]
+    #  - name: atacseq-workflow_10000:3908761308
+    #    files: []
+    #    extra_args: [ '-w atacseq-workflow_10000:3908761308' ]
       - name: atacseq-workflow_1000:3908761308
         files: []
         extra_args: [ '-w atacseq-workflow_1000:3908761308' ]
