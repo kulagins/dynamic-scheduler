@@ -70,7 +70,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     int algoNumber = bodyjson["algorithm"].get<int>();
     cout << "new, algo " << algoNumber << " " <<currentName<<" ";
 
-    string filename = "./input/";
+    string filename = "../input/";
     string suffix = "00";
     if (workflowName.substr(workflowName.size() - suffix.size()) == suffix) {
         filename += "generated/";//+filename;
@@ -84,6 +84,8 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     currentAlgoNum = algoNumber;
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
     cluster->setHomogeneousBandwidth(10000);
+    cluster->printProcessors();
+
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
     double maxMemReq = 0;
