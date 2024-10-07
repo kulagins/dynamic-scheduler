@@ -84,7 +84,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     currentAlgoNum = algoNumber;
     Cluster *cluster = Fonda::buildClusterFromJson(bodyjson);
     cluster->setHomogeneousBandwidth(10000);
-    cluster->printProcessors();
+    //cluster->printProcessors();
 
     Fonda::fillGraphWeightsFromExternalSource(graphMemTopology, bodyjson);
 
@@ -146,7 +146,7 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
     } */
 
 
-    try {
+    //try {
         updateCounter++;
 
         const string &basicString = req.body();
@@ -262,15 +262,15 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
       //  assert(currentAssignmentWithNoRecalculation.empty() ||(*currentAssignmentWithNoRecalculation.begin())->startTime<= currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->startTime);
         cout<<" no_recomputation: "<< (isNoRecalculationStillValid && !currentAssignmentWithNoRecalculation.empty() ? currentAssignmentWithNoRecalculation.at(currentAssignmentWithNoRecalculation.size()-1)->finishTime: -1)<<" ";
         cout << updateCounter << " " << delayCnt << endl;
-    }
-    catch (const std::exception& e) {
-        std::cerr << "Exception: " << e.what() << std::endl;
-        resp.send(Http::Code::Not_Acceptable, "Error during scheduling.");
-    }
-    catch(...){
-        cout<<"Unknown error happened."<<endl;
-        resp.send(Http::Code::Not_Acceptable, "Error during scheduling.");
-    }
+ //   }
+ //   catch (const std::exception& e) {
+  //      std::cerr << "Exception: " << e.what() << std::endl;
+ //       resp.send(Http::Code::Not_Acceptable, "Error during scheduling.");
+  //  }
+ //   catch(...){
+  //      cout<<"Unknown error happened."<<endl;
+  //      resp.send(Http::Code::Not_Acceptable, "Error during scheduling.");
+  //  }
 }
 
 void handleSignal(int signal) {

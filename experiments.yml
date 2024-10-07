@@ -881,30 +881,34 @@ instances:
 variants:
   - axis: 'cluster-size'
     items:
-      - name: 'normal'
-        extra_args: ['-m 4:1600:6', '-m 32:3200:6', '-m 6:6400:6', '-m 12:1600:6', '-m 8:800:6', '-m 32:19200:6']
       - name: 'large'
-        extra_args: [ '-m 4:1600:12', '-m 32:3200:12', '-m 6:6400:12', '-m 12:1600:12', '-m 8:800:12', '-m 32:19200:12' ]
+        extra_args: [ '-m 4:1600:36', '-m 32:3200:36', '-m 6:6400:36', '-m 12:1600:36', '-m 8:800:36', '-m 32:19200:36' ]
+      - name: 'normal'
+        extra_args: [ '-m 4:1600:24', '-m 32:3200:24', '-m 6:6400:24', '-m 12:1600:24', '-m 8:800:24', '-m 32:19200:24' ]
+      - name: 'small'
+        extra_args: ['-m 4:1600:18', '-m 32:3200:18', '-m 6:6400:18', '-m 12:1600:18', '-m 8:800:18', '-m 32:19200:18']
+     # - name: 'tiny'
+     #   extra_args: [ '-m 4:1600:12', '-m 32:3200:12', '-m 6:6400:12', '-m 12:1600:12', '-m 8:800:12', '-m 32:19200:12' ]
      # - name: 'short'
      #   extra_args: ['-m 4:1600:12 -m 32:3200:12 -m 6:6400:12']
 
 experiments:
-  - name: Algo1
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 1', '-e' ] #'@INSTANCE@',
+  - name: Algo1NoError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 1' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-  - name: Algo3
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 3', '-e' ] #'@INSTANCE@',
+  - name: Algo3NoError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 3' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-  - name: Algo5
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 5', '-e' ] #'@INSTANCE@',
+  - name: Algo5NoError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 5'] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-  - name: Algo7
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
+  - name: Algo7NoError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 7' ] #'@INSTANCE@',
     stdout: out
 matrix:
   include:
-    - experiments: [Algo1, Algo3, Algo5, Algo7]
+    - experiments: [Algo1NoError, Algo3NoError, Algo5NoError, Algo7NoError]
       axes: [cluster-size]
