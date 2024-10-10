@@ -173,22 +173,22 @@ variants:
      #   extra_args: ['-m 4:1600:12 -m 32:3200:12 -m 6:6400:12']
 
 experiments:
-  - name: Algo1NoError
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 1' ] #'@INSTANCE@',
+  - name: Algo1WithError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 1',  '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-  - name: Algo3NoError
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 3' ] #'@INSTANCE@',
+  - name: Algo3WithError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 3' , '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-  - name: Algo5NoError
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 5'] #'@INSTANCE@',
+  - name: Algo5WithError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 5', '-e'] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-  - name: Algo7NoError
-    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 7' ] #'@INSTANCE@',
+  - name: Algo7WithError
+    args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
     stdout: out
 matrix:
   include:
-    - experiments: [Algo1NoError, Algo3NoError, Algo5NoError, Algo7NoError]
+    - experiments: [Algo1WithError, Algo3WithError, Algo5WithError, Algo7WithError]
       axes: [cluster-size]
