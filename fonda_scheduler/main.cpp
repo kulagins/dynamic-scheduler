@@ -70,7 +70,7 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
     int algoNumber = bodyjson["algorithm"].get<int>();
     cout << "new, algo " << algoNumber << " " <<currentName<<" ";
 
-    string filename = "../input/";
+    string filename = "./input/";
     string suffix = "00";
     if (workflowName.substr(workflowName.size() - suffix.size()) == suffix) {
         filename += "generated/";//+filename;
@@ -94,7 +94,11 @@ void new_schedule(const Rest::Request &req, Http::ResponseWriter resp) {
         maxMemReq = peakMemoryRequirementOfVertex(vertex) > maxMemReq?peakMemoryRequirementOfVertex(vertex):maxMemReq;
         vertex = vertex->next;
     }
-    //cout<<"MAX MEM REQ "<<maxMemReq<< " ";
+    cout<<"MAX MEM REQ "<<maxMemReq<< " MMR  ";
+    if(maxMemReq>cluster->getMemBiggestFreeProcessor()->getMemorySize()){
+        cout<<"SCHEDULE IMPOSSIBLE"<<endl;
+        resp.send(Http::Code::Not_Acceptable, "unacceptable schedule");
+    }
     bool wasCorrect;
     double resultingMS;
     vector<Assignment *> assignments = runAlgorithm(algoNumber, graphMemTopology, cluster, workflowName, wasCorrect, resultingMS);

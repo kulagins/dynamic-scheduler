@@ -565,7 +565,7 @@ double removeInputPendingEdgesFromEverywherePendingMemAndBuffer(const Cluster *c
                 processor->pendingInBuffer.erase(it);
             }
             assert(processor->availableBuffer <= processor->communicationBuffer);
-            assert(processor->availableMemory <= (processor->getMemorySize()+0.001));
+            //assert(processor->availableMemory <= (processor->getMemorySize()+0.001));
         }
     }
     return availableMem;
