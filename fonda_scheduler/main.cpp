@@ -238,6 +238,7 @@ void update(const Rest::Request &req, Http::ResponseWriter resp) {
                     return;
                 }
                taskWithProblem->memoryRequirement=d;
+               resp.send(Http::Code::Precondition_Failed, "");
                completeRecomputationOfSchedule(resp, bodyjson, timestamp, taskWithProblem);
                isNoRecalculationStillValid=false;
 

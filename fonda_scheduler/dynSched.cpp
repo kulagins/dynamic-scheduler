@@ -456,8 +456,8 @@ double heuristic(graph_t *graph, Cluster *cluster, int bottomLevelVariant, int e
             }
         }
         if(minFinishTime==numeric_limits<double>::max() ){
-            cout<<"Failed to find a processor for "<<vertexToAssign->name<<", FAIL"<<endl;
-            cluster->printAssignment();
+            cout<<"Failed to find a processor for "<<vertexToAssign->name<<", FAIL"<<" ";
+            cluster->printProcessors();
             assignments.resize(0);
             return -1;
         }
@@ -641,7 +641,7 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
                                         incomingEdge->tail->name == edge->tail->name;
                              })
                 == pj->pendingMemories.end()) {
-               // cout<<"Failed because predecessors memory has been evicted on "<< predecessor->assignedProcessor->id<<endl;
+               cout<<"Failed because predecessors memory has been evicted on "<< predecessor->assignedProcessor->id<<endl;
                isValid = false;
             }
         }
@@ -659,6 +659,7 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
         double stillTooMuch;
         stillTooMuch = Res;
         currentlyAvailableBuffer = pj->availableBuffer;
+        cout<<"currently avail buffer "<<endl;
         std::vector<edge_t*> penMemsAsVector;//(pj->pendingMemories.size());
         penMemsAsVector.reserve(pj->pendingMemories.size());
         for (edge_t * e: pj->pendingMemories){
@@ -680,17 +681,17 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
 
         if (stillTooMuch < 0 || currentlyAvailableBuffer < 0) {
             // could not evict enough
-        //    printInlineDebug("could not evict enough ");
-        //    if(stillTooMuch<0)printDebug("due to mem ");
-         //   if(currentlyAvailableBuffer<0) printDebug("due to buffer");
+            printInlineDebug("could not evict enough ");
+            if(stillTooMuch<0)printDebug("due to mem ");
+            if(currentlyAvailableBuffer<0) printDebug("due to buffer");
             isValid = false;
         }
         else{
-          //  printInlineDebug("bla");
+           printInlineDebug("should be successful");
         }
     }
     else{
-      //  printInlineDebug("bla");
+        printInlineDebug("should be successful");
     }
 
     //step 3: tentatively assign
