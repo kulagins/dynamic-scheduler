@@ -188,6 +188,8 @@ experiments:
   - name: Algo7WithError
     args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
     stdout: out
+    num_threads: 24
+
 matrix:
   include:
     - experiments: [Algo1WithError, Algo3WithError, Algo5WithError, Algo7WithError]
