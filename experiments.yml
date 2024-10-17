@@ -177,22 +177,22 @@ experiments:
     args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 1',  '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-    slurm_args: ['-q', 'base', '--nodelist', 'stark[01-05]']
+    slurm_args: [ '--nodelist', 'stark[01-05]']
   - name: Algo3WithError
     args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 3' , '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-    slurm_args: ['-q', 'base', '--nodelist', 'stark[01-05]']
+    slurm_args: [ '--nodelist', 'stark[01-05]']
   - name: Algo5WithError
     args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 5', '-e'] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-    slurm_args: ['-q', 'base', '--nodelist', 'stark[01-05]']
+    slurm_args: [ '--nodelist', 'stark[01-05]']
   - name: Algo7WithError
     args: [ './experiment.sh', '@EXTRA_ARGS@', '-a 7', '-e' ] #'@INSTANCE@',
     stdout: out
     num_threads: 24
-    slurm_args: ['-q', 'base', '--nodelist', 'stark[01-05]']
+    slurm_args: ['--nodelist', 'stark[01-05]']
 
 matrix:
   include:
