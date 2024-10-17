@@ -167,8 +167,6 @@ bool heft(graph_t *G, Cluster *cluster, double & makespan, vector<Assignment*> &
             bool isValid= true;
             double peakMem=0, startTime;
             vector<edge_t * > bestEdgesToKick;
-            double peakMemOnBestp=0;
-            int bestProcessorId;
             vector<edge_t * > edgesToKick = tentativeAssignmentDespiteMemory(vertex,processorToCheckCorrectness,cluster,FT, startTime, isValid, peakMem);
 
             if(FT ==numeric_limits<double>::max()){
@@ -659,7 +657,6 @@ tentativeAssignmentDespiteMemory(vertex_t *v, Processor *pj, Cluster *cluster, d
         double stillTooMuch;
         stillTooMuch = Res;
         currentlyAvailableBuffer = pj->availableBuffer;
-        cout<<"currently avail buffer "<<endl;
         std::vector<edge_t*> penMemsAsVector;//(pj->pendingMemories.size());
         penMemsAsVector.reserve(pj->pendingMemories.size());
         for (edge_t * e: pj->pendingMemories){
